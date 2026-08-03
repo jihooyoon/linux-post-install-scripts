@@ -1,9 +1,10 @@
 #!/bin/sh
 # setup-all-ubuntu-based — Cài toàn bộ: chuỗi cơ bản + Claude + phím tắt Super+Space
-#  1. install-basic-ubuntu-based.sh — de-snap, flatpak, basic apps, lotus
-#  2. install-claude-deb.sh          — Claude Desktop + Claude Code CLI
-#  3. set-ime-shortcut-win-space.sh  — Super+Space chuyển input method
-# Lưu ý: các script con phải nằm cùng thư mục với file này.
+#  1. setup-basic-ubuntu-based.sh             — de-snap, flatpak, basic apps, lotus
+#  2. extras/install-claude-deb.sh           — Claude Desktop + Claude Code CLI
+#  3. extras/set-ime-shortcut-win-space.sh   — Super+Space chuyển input method
+#  4. extras/install-chat-apps.sh            — Slack, Mattermost, Discord
+# Lưu ý: các script con phải nằm đúng đường dẫn tương đối so với file này.
 # Chạy: sudo ./setup-all-ubuntu-based   (dùng sudo, KHÔNG dùng su — cần SUDO_USER)
 
 set -e
@@ -30,9 +31,10 @@ run_step() {
     ok "Hoàn tất: $name"
 }
 
-run_step "Chuỗi cài đặt cơ bản (de-snap, flatpak, apps, lotus)" install-basic-ubuntu-based.sh
-run_step "Claude Desktop + Claude Code CLI"                    install-claude-deb.sh
-run_step "Phím tắt Super+Space cho input method"               set-ime-shortcut-win-space.sh
+run_step "Chuỗi cài đặt cơ bản (de-snap, flatpak, apps, lotus)" setup-basic-ubuntu-based.sh
+run_step "Claude Desktop + Claude Code CLI"                    extras/install-claude-deb.sh
+run_step "Phím tắt Super+Space cho input method"               extras/set-ime-shortcut-win-space.sh
+run_step "Slack, Mattermost, Discord"                           extras/install-chat-apps.sh
 
 printf '\n\033[1;32mHoàn tất toàn bộ!\033[0m Khởi động lại máy để áp dụng mọi thứ.\n'
 printf 'Sau khi khởi động lại:\n'
