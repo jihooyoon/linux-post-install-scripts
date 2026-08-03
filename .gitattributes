@@ -1,0 +1,2 @@
+# Chốt LF cho shell script — tránh CRLF làm hỏng script khi chỉnh trên Windows
+*.sh text eol=lf
