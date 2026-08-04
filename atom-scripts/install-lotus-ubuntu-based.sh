@@ -103,6 +103,130 @@ else
     warn "Không xác định được user (chạy không qua sudo) — bỏ qua bước profile"
 fi
 
+# --- Bước 8: Config mặc định của Lotus trong ~/.config/fcitx5/conf/ ---
+# Ghi config mặc định (lotus.conf) và quy tắc theo ứng dụng (lotus-app-rules.conf).
+# Nếu file đã tồn tại thì không ghi đè — tôn trọng config người dùng đã tự chỉnh.
+info "Bước 8: Ghi config mặc định của Lotus..."
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+    HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    FCONF_DIR="$HOME_USER/.config/fcitx5/conf"
+    sudo -u "$SUDO_USER" mkdir -p "$FCONF_DIR"
+
+    if [ -f "$FCONF_DIR/lotus-app-rules.conf" ]; then
+        ok "Đã có lotus-app-rules.conf — không ghi đè"
+    else
+        cat > "$FCONF_DIR/lotus-app-rules.conf" <<'EOF'
+# Lotus Per-App Configuration
+# 0 = Off, 1 = Uinput (Smooth), 2 = Uinput (Slow), 3 = Uinput (Hardcore), 4 = Surrounding Text, 5 = Preedit, 6 = Emoji Picker
+slack=4
+planmaker24free=4
+textmaker24free=4
+presentations24free=4
+EOF
+        chown "$SUDO_USER" "$FCONF_DIR/lotus-app-rules.conf"
+    fi
+
+    if [ -f "$FCONF_DIR/lotus.conf" ]; then
+        ok "Đã có lotus.conf — không ghi đè"
+    else
+        cat > "$FCONF_DIR/lotus.conf" <<'EOF'
+# Mode
+Mode="Uinput (Super Smooth)"
+# Input Method
+InputMethod=Telex
+# Output Charset
+OutputCharset=Unicode
+# Cycle Mode Hotkey
+CycleModeKey=
+# Type w to Produce ư
+W2U=Non-Start
+# Type [ -> ơ, ] -> ư, { -> Ơ, } -> Ư
+BracketTransform=Disabled
+# Enable Spell Check
+SpellCheck=True
+# Enable Macro
+EnableMacro=True
+# Capitalize Macro
+CapitalizeMacro=True
+# Auto capitalize after sentence-ending punctuation (. ! ? Enter)
+AutoCapitalizeAfterPunctuation=False
+# Double Space to Period
+DoubleSpaceToPeriod=False
+# Double Hyphen to Em-Dash (--)
+DoubleHyphenToEmDash=False
+# Auto Restore Invalid Words
+AutoNonVnRestore=True
+# Use oà, uý (Instead Of òa, úy)
+ModernStyle=True
+# Allow Type With More Freedom
+FreeMarking=True
+# Allow dd To Produce đ When Auto Restore Invalid Words Is On
+DdFreeStyle=True
+# Fix Uinput Mode With Ack
+FixUinputWithAck=False
+# Use Lotus Status Icons
+UseLotusIcons=False
+# Custom Dictionary
+EnableDictionary=False
+# Custom Keymap
+EnableCustomKeymap=False
+# Show Uinput (Smooth)
+ShowModeSmooth=True
+# Shortcut for Uinput (Smooth)
+ShortcutSmooth=1
+# Show Uinput (Slow)
+ShowModeUinput=True
+# Shortcut for Uinput (Slow)
+ShortcutUinput=2
+# Show Uinput (Super Smooth)
+ShowModeSuperSmooth=True
+# Shortcut for Uinput (Super Smooth)
+ShortcutSuperSmooth=a
+# Show Minecraft
+ShowModeMinecraft=True
+# Shortcut for Minecraft
+ShortcutMinecraft=3
+# Show Surrounding Text
+ShowModeSurroundingText=True
+# Shortcut for Surrounding Text
+ShortcutSurroundingText=4
+# Show Preedit
+ShowModePreedit=True
+# Shortcut for Preedit
+ShortcutPreedit=q
+# Show Emoji Picker
+ShowModeEmoji=True
+# Shortcut for Emoji Picker
+ShortcutEmoji=w
+# Show OFF
+ShowModeOff=True
+# Shortcut for OFF
+ShortcutOff=e
+# Show Default Typing
+ShowModeDefault=True
+# Shortcut for Default Typing
+ShortcutDefault=r
+# Allow Macro in Off Mode
+EnableMacroInOffMode=False
+# Mode Order
+ModeOrder=Smooth,Uinput,Minecraft,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default
+# Time Format ($TIME in macro)
+TimeFormat=%H:%M
+# Date Format ($DATE in macro)
+DateFormat=%d/%m/%Y
+# Icon Color
+IconTheme=Auto
+
+[ModeMenuKey]
+0=grave
+EOF
+        chown "$SUDO_USER" "$FCONF_DIR/lotus.conf"
+    fi
+    ok "Config Lotus đã sẵn sàng"
+else
+    warn "Không xác định được user — bỏ qua bước config"
+fi
+
 printf '\nCách gõ: \033[1mCtrl+Space\033[0m để chuyển giữa bàn phím tiếng Anh và \033[1mLotus\033[0m (đã thêm sẵn vào profile).\n'
 printf 'Gợi ý: nên dùng cùng fcitx5 (install-basic-apps-deb.sh đã cài sẵn).\n'
 printf 'Nếu app X11 GTK3 cũ không gõ được: thêm GTK_IM_MODULE=fcitx vào /etc/environment.d/fcitx5.conf.\n'
