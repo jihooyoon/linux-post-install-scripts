@@ -42,6 +42,10 @@ printf '\n\033[1;32mHoàn tất toàn bộ!\033[0m Khởi động lại máy đ�
 printf 'Sau khi khởi động lại:\n'
 printf '  - Chạy \033[1mclaude\033[0m để đăng nhập Claude Code lần đầu\n'
 printf '  - Bật bộ gõ Lotus trong fcitx5-config nếu chưa có\n'
-printf '  - Mở \033[1mExtension Manager\033[0m để cài 2 extension GNOME:\n'
-printf '      + KIMPanel: extensions.gnome.org/extension/261/kimpanel\n'
-printf '      + Copyous:  extensions.gnome.org/extension/8834/copyous\n'
+case "$XDG_CURRENT_DESKTOP" in
+    *GNOME*)
+        printf '  - Mở \033[1mExtension Manager\033[0m để cài 2 extension GNOME:\n'
+        printf '      + KIMPanel: extensions.gnome.org/extension/261/kimpanel\n'
+        printf '      + Copyous:  extensions.gnome.org/extension/8834/copyous\n'
+        ;;
+esac
