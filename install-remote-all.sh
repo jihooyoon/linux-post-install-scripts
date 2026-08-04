@@ -1,8 +1,8 @@
 #!/bin/sh
-# bootstrap.sh — Cài toàn bộ từ GitHub trên máy mới, tự dọn dẹp
+# install-remote-all.sh — Cài toàn bộ từ GitHub trên máy mới, tự dọn dẹp
 #
 # Cách dùng (một lệnh duy nhất trên máy cần cài):
-#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/bootstrap.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote-all.sh | sudo bash
 #
 # Cách hoạt động:
 #   1. Tải tarball repo về /tmp (không cần clone tay, không cần git)
@@ -17,7 +17,7 @@ BRANCH="main"
 TARBALL="/tmp/linux-post-install-scripts.tar.gz"
 DEST="/tmp/linux-post-install-scripts-$BRANCH"
 
-info() { printf '\033[1;36m[bootstrap]\033[0m %s\n' "$*"; }
+info() { printf '\033[1;36m[install]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m      %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
 
@@ -25,7 +25,7 @@ die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
 trap 'rm -rf "$TARBALL" "$DEST"' EXIT INT TERM
 
 # --- Kiểm tra quyền root và user thật ---
-[ "$(id -u)" -eq 0 ] || die "Phải chạy với sudo: curl -fsSL <url>/bootstrap.sh | sudo bash"
+[ "$(id -u)" -eq 0 ] || die "Phải chạy với sudo: curl -fsSL <url>/install-remote-all.sh | sudo bash"
 [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ] \
     || die "Không xác định được user thật — chạy bằng sudo (không dùng su)"
 command -v curl >/dev/null 2>&1 || die "Thiếu curl — cài trước: sudo apt-get install -y curl"

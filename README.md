@@ -13,10 +13,10 @@ Scripts for configuring Linux distros after clean install
 **Một lệnh duy nhất (không cần clone tay):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/bootstrap.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote-all.sh | sudo bash
 ```
 
-`bootstrap.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh`, rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
+`install-remote-all.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh`, rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
 
 **Hoặc clone rồi chạy tay:**
 
