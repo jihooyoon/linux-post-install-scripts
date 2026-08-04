@@ -1,12 +1,13 @@
 #!/bin/sh
-# de-snap.sh — Gỡ toàn bộ snap packages và snapd khỏi hệ thống
-# Chạy: sudo ./de-snap.sh
+# del-snap-n-replace-apps.sh — Gỡ toàn bộ snap packages và snapd, cài lại Firefox .deb + pin Thunderbird tránh snap
+# Chạy: sudo ./del-snap-n-replace-apps.sh
 # Lưu ý: trên Ubuntu 22.04+, việc purge snapd có thể kéo theo việc
 # gỡ các gói transitional như firefox, gnome-software (cài lại bằng deb sau đó).
+# Thunderbird được pin để sau này nếu cài sẽ lấy từ PPA, không phải snap.
 
 set -e
 
-info() { printf '\033[1;34m[de-snap]\033[0m %s\n' "$*"; }
+info() { printf '\033[1;34m[del-snap]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m     %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m   %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m  %s\n' "$*" >&2; exit 1; }
@@ -82,9 +83,60 @@ EOF
     ok "Đã ghi /etc/apt/preferences.d/nosnap.pref"
 fi
 
+# --- Bước 7: Cài lại GNOME Software (bản .deb thay cho snap transitional đã bị purge) ---
+case "$XDG_CURRENT_DESKTOP" in
+    *GNOME*)
+        info "Bước 7: Cài GNOME Software (App Center) bản .deb..."
+        apt-get install -y --no-install-recommends gnome-software
+        ok "Đã cài gnome-software"
+        ;;
+esac
+
+# --- Bước 8: Cài Firefox .deb + pin Thunderbird (tránh snap sau này) ---
+info "Bước 8: Cài Firefox .deb và pin Thunderbird tránh snap..."
+command -v add-apt-repository >/dev/null 2>&1 || apt-get install -y software-properties-common
+add-apt-repository -y ppa:mozillateam/ppa
+apt-get update
+
+# Pin bản .deb từ PPA (1001) và chặn hẳn gói snap transitional của Ubuntu (-1)
+# Thunderbird được pin để sau này nếu cài sẽ lấy từ PPA, không bị kéo snap
+cat > /etc/apt/preferences.d/mozillateam-ppa.pref <<'EOF'
+# Ưu tiên bản .deb từ PPA mozillateam; chặn hoàn toàn gói snap transitional của Ubuntu
+Package: firefox*
+Pin: release o=LP-PPA-mozillateam
+Pin-Priority: 1001
+
+Package: firefox*
+Pin: release o=Ubuntu
+Pin-Priority: -1
+
+Package: thunderbird*
+Pin: release o=LP-PPA-mozillateam
+Pin-Priority: 1001
+
+Package: thunderbird*
+Pin: release o=Ubuntu
+Pin-Priority: -1
+EOF
+
+# Gỡ bản snap nếu còn sót
+snap remove --purge firefox 2>/dev/null || true
+snap remove --purge thunderbird 2>/dev/null || true
+
+# Cài firefox (rapid); nếu repo không có thì fallback sang firefox-esr
+if apt-cache show firefox >/dev/null 2>&1; then
+    FIREFOX_PKG=firefox
+else
+    FIREFOX_PKG=firefox-esr
+    warn "Repo không có gói firefox (rapid) — cài firefox-esr thay thế"
+fi
+apt-get install -y "$FIREFOX_PKG"
+ok "Đã cài $FIREFOX_PKG bản .deb (Thunderbird được pin sẵn, cài sau nếu cần)"
+
 # --- Tổng kết ---
 if command -v snap >/dev/null 2>&1; then
     warn "snap vẫn tồn tại trên hệ thống — kiểm tra lại thủ công"
 else
-    ok "Hoàn tất! snap đã bị gỡ hoàn toàn. Nên khởi động lại máy."
+    ok "Hoàn tất! snap đã bị gỡ hoàn toàn. Firefox đã được thay bằng bản .deb (Thunderbird đã pin sẵn)."
+    printf 'Nên khởi động lại máy để hoàn tất.\n'
 fi

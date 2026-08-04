@@ -134,49 +134,8 @@ command -v curl >/dev/null 2>&1 || apt-get install -y curl
 curl -fsSL https://softmaker.net/down/install-softmaker-freeoffice-2024.sh | bash
 ok "Đã cài FreeOffice 2024"
 
-# --- Bước 4: Cài Firefox + Thunderbird bản .deb từ PPA mozillateam ---
-# (snap vốn là bản mặc định trên Ubuntu 22.04+ — dùng sau khi de-snap)
-info "Bước 4: Cài Firefox và Thunderbird bản .deb từ PPA mozillateam..."
-command -v add-apt-repository >/dev/null 2>&1 || apt-get install -y software-properties-common
-add-apt-repository -y ppa:mozillateam/ppa
-apt-get update
-
-# Pin bản .deb từ PPA (1001) và chặn hẳn gói snap transitional của Ubuntu (-1)
-cat > /etc/apt/preferences.d/mozillateam-ppa.pref <<'EOF'
-# Ưu tiên bản .deb từ PPA mozillateam; chặn hoàn toàn gói snap transitional của Ubuntu
-Package: firefox*
-Pin: release o=LP-PPA-mozillateam
-Pin-Priority: 1001
-
-Package: firefox*
-Pin: release o=Ubuntu
-Pin-Priority: -1
-
-Package: thunderbird*
-Pin: release o=LP-PPA-mozillateam
-Pin-Priority: 1001
-
-Package: thunderbird*
-Pin: release o=Ubuntu
-Pin-Priority: -1
-EOF
-
-# Gỡ bản snap nếu còn sót
-snap remove --purge firefox 2>/dev/null || true
-snap remove --purge thunderbird 2>/dev/null || true
-
-# Cài firefox (rapid); nếu repo không có thì fallback sang firefox-esr
-if apt-cache show firefox >/dev/null 2>&1; then
-    FIREFOX_PKG=firefox
-else
-    FIREFOX_PKG=firefox-esr
-    warn "Repo không có gói firefox (rapid) — cài firefox-esr thay thế"
-fi
-apt-get install -y "$FIREFOX_PKG" thunderbird
-ok "Đã cài $FIREFOX_PKG và Thunderbird bản .deb (cập nhật qua apt như bình thường)"
-
-# --- Bước 5: Cài Google Chrome (repo chính thức của Google) ---
-info "Bước 5: Cài Google Chrome..."
+# --- Bước 4: Cài Google Chrome (repo chính thức của Google) ---
+info "Bước 4: Cài Google Chrome..."
 command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
 mkdir -p /etc/apt/keyrings
 curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
@@ -185,6 +144,60 @@ echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.
 apt-get update
 apt-get install -y google-chrome-stable
 ok "Đã cài Google Chrome"
+
+# --- Bước 5: Cài Chromium (ưu tiên .deb từ repo có sẵn, fallback Linux Mint repo) ---
+info "Bước 5: Cài Chromium..."
+HAS_CHROMIUM=0
+for pkg in chromium chromium-browser; do
+    if apt-cache show "$pkg" >/dev/null 2>&1; then
+        # Bỏ qua nếu là snap transitional (Depends: snapd)
+        if ! apt-cache show "$pkg" 2>/dev/null | grep -q 'Depends:.*snapd'; then
+            HAS_CHROMIUM=1
+            CHROMIUM_PKG="$pkg"
+            break
+        fi
+    fi
+done
+
+if [ "$HAS_CHROMIUM" -eq 1 ]; then
+    info "Repo hiện tại có $CHROMIUM_PKG (.deb thật) — cài trực tiếp"
+    apt-get install -y "$CHROMIUM_PKG"
+else
+    # Fallback: thêm Linux Mint repo (chỉ lấy chromium)
+    warn "Repo không có chromium .deb — thêm Linux Mint repo (chỉ chromium)"
+    command -v curl >/dev/null 2>&1 || apt-get install -y curl
+    UBUNTU_CODENAME=$(grep -oP 'VERSION_CODENAME=\K.*' /etc/os-release 2>/dev/null || lsb_release -sc 2>/dev/null || true)
+    case "$UBUNTU_CODENAME" in
+        jammy)  MINT_SUITE="virginia"  ;;  # 22.04 → Mint 21.x
+        noble)  MINT_SUITE="wilma"     ;;  # 24.04 → Mint 22.x
+        *)      MINT_SUITE="zena"      ;;  # 26.04+ → Mint 23
+    esac
+    # Cài linuxmint-keyring
+    MINT_KEYRING_URL="http://packages.linuxmint.com/pool/main/l/linuxmint-keyring"
+    KEYRING_DEB=$(curl -fsSL "$MINT_KEYRING_URL/" 2>/dev/null | \
+        grep -oP 'linuxmint-keyring_[^"]+_all\.deb' | sort -V | tail -1)
+    [ -n "$KEYRING_DEB" ] || die "Không tìm thấy linuxmint-keyring — kiểm tra kết nối mạng"
+    TMP_DEB=$(mktemp /tmp/linuxmint-keyring.XXXXXX.deb)
+    curl -fsSL "$MINT_KEYRING_URL/$KEYRING_DEB" -o "$TMP_DEB"
+    dpkg -i "$TMP_DEB"
+    rm -f "$TMP_DEB"
+    mkdir -p /etc/apt/keyrings
+    [ -f /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg ] && \
+        mv /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg /etc/apt/keyrings/
+    # Thêm repo Mint (Include: chromium — apt 26.04+ chỉ lấy chromium)
+    cat > /etc/apt/sources.list.d/linuxmint.sources <<EOF
+# Linux Mint repo — chỉ lấy chromium, không ảnh hưởng gì đến hệ thống
+Types: deb
+URIs: http://packages.linuxmint.com
+Suites: $MINT_SUITE
+Components: upstream
+Include: chromium
+Signed-By: /etc/apt/keyrings/linuxmint-keyring.gpg
+EOF
+    apt-get update
+    apt-get install -y chromium
+fi
+ok "Đã cài Chromium"
 
 # --- Bước 6: Cài Visual Studio Code (repo chính thức của Microsoft) ---
 info "Bước 6: Cài Visual Studio Code..."
@@ -199,6 +212,6 @@ printf '\n\033[1;32mHoàn tất!\033[0m Tóm tắt:\n'
 printf '  - LibreOffice: đã gỡ sạch\n'
 printf '  - fcitx5: cài xong, đã purge ibus, autostart sẵn (đăng xuất/đăng nhập lại)\n'
 printf '  - FreeOffice 2024: đã cài\n'
-printf '  - Firefox + Thunderbird: bản .deb từ PPA mozillateam\n'
 printf '  - Google Chrome: repo chính thức của Google\n'
+printf '  - Chromium: .deb (từ repo có sẵn hoặc Linux Mint)\n'
 printf '  - Visual Studio Code: repo chính thức của Microsoft\n'

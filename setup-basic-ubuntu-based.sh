@@ -1,9 +1,9 @@
 #!/bin/sh
 # install-basic-ubuntu-based.sh — Chạy chuỗi script cài đặt cơ bản cho Ubuntu-based
-# Thứ tự: de-snap → flatpak → basic apps → lotus
-#   - de-snap trước: gỡ sạch snap/snapd để các bước sau không vướng snap
+# Thứ tự: del-snap → flatpak → basic apps → lotus
+#   - del-snap trước: gỡ sạch snap/snapd + thay Firefox, Thunderbird bằng .deb
 #   - flatpak: Flatpak + Flathub + GNOME Software
-#   - basic apps: LibreOffice, fcitx5, FreeOffice, Firefox/TB, Chrome, VS Code
+#   - basic apps: LibreOffice, fcitx5, FreeOffice, Chrome, VS Code
 #   - lotus: bộ gõ tiếng Việt Lotus cho fcitx5 + env
 # Lưu ý: các script đơn vị nằm trong thư mục con atom-scripts/ cạnh file này.
 # Chạy: sudo ./install-basic-ubuntu-based.sh   (dùng sudo, KHÔNG dùng su — cần SUDO_USER)
@@ -23,6 +23,11 @@ die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
 # Thư mục chứa script con (không phụ thuộc nơi gọi)
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
+# Phát hiện Tuxedo OS (đã tắt snap mặc định, dùng Firefox, Thunderbird .deb sẵn)
+is_tuxedo() {
+    grep -qi 'tuxedo' /etc/os-release 2>/dev/null
+}
+
 run_step() {
     name=$1
     file=$2
@@ -32,7 +37,12 @@ run_step() {
     ok "Hoàn tất: $name"
 }
 
-run_step "Gỡ snap và snapd"                 atom-scripts/de-snap.sh
+if is_tuxedo; then
+    info "Phát hiện Tuxedo OS — thay bước de-snap bằng generalize-tuxedo-os"
+    run_step "Gỡ app Tuxedo + cài Chromium"      atom-scripts/generalize-tuxedo-os.sh
+else
+    run_step "Gỡ snap, thay thế bằng các app deb" atom-scripts/del-snap-n-replace-apps.sh
+fi
 run_step "Flatpak + Flathub"                atom-scripts/enable-flatpak-flathub-deb.sh
 run_step "Ứng dụng cơ bản"                  atom-scripts/install-basic-apps-deb.sh
 run_step "Bộ gõ tiếng Việt Lotus"           atom-scripts/install-lotus-ubuntu-based.sh

@@ -16,27 +16,18 @@ die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
 info "Bước 1: Cập nhật danh sách gói..."
 apt-get update
 
-# --- Bước 2: Cài GNOME Software (App Center) — chỉ khi dùng GNOME ---
-case "$XDG_CURRENT_DESKTOP" in
-    *GNOME*)
-        info "Bước 2: Cài GNOME Software (App Center)..."
-        apt-get install -y --no-install-recommends gnome-software
-        ok "Đã cài gnome-software"
-        ;;
-esac
-
-# --- Bước 3: Cài flatpak ---
-info "Bước 3: Cài flatpak..."
+# --- Bước 2: Cài flatpak ---
+info "Bước 2: Cài flatpak..."
 apt-get install -y flatpak
 ok "Đã cài flatpak"
 
-# --- Bước 4: Thêm kho Flathub ---
-info "Bước 4: Thêm kho Flathub..."
+# --- Bước 3: Thêm kho Flathub ---
+info "Bước 3: Thêm kho Flathub..."
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 ok "Đã thêm kho Flathub"
 
-# --- Bước 5: Plugin tích hợp vào App Center theo desktop environment ---
-info "Bước 5: Cài plugin hiển thị flatpak trong App Center..."
+# --- Bước 4: Plugin tích hợp vào App Center theo desktop environment ---
+info "Bước 4: Cài plugin hiển thị flatpak trong App Center..."
 case "$XDG_CURRENT_DESKTOP" in
     *GNOME*)
         apt-get install -y gnome-software-plugin-flatpak || true
@@ -51,8 +42,8 @@ case "$XDG_CURRENT_DESKTOP" in
         ;;
 esac
 
-# --- Bước 6: Kiểm tra ---
-info "Bước 6: Kiểm tra cấu hình..."
+# --- Bước 5: Kiểm tra ---
+info "Bước 5: Kiểm tra cấu hình..."
 if flatpak remotes | grep -q flathub; then
     ok "Flathub đã sẵn sàng"
 else

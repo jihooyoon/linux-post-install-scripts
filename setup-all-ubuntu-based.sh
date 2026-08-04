@@ -1,9 +1,10 @@
 #!/bin/sh
 # setup-all-ubuntu-based — Cài toàn bộ: chuỗi cơ bản + Claude + phím tắt input method
-#  1. setup-basic-ubuntu-based.sh             — de-snap, flatpak, basic apps, lotus
-#  2. extras/install-claude-deb.sh           — Claude Desktop + Claude Code CLI
-#  3. extras/set-ime-shortcut.sh            — Phím tắt chuyển input method (GNOME: Alt+Space / KDE: Super+Space)
-#  4. extras/install-chat-apps.sh            — Slack, Mattermost, Discord
+#  1. setup-basic-ubuntu-based.sh              — del-snap, flatpak, basic apps, lotus
+#  2. extras/install-claude-deb.sh            — Claude Desktop + Claude Code CLI
+#  3. extras/set-ime-shortcut.sh             — Phím tắt chuyển input method (GNOME: Alt+Space / KDE: Super+Space)
+#  4. extras/install-chat-apps.sh             — Slack, Mattermost, Discord
+#  5. extras/install-basic-dev-works.sh        — Node.js LTS (NodeSource)
 # Lưu ý: các script con phải nằm đúng đường dẫn tương đối so với file này.
 # Chạy: sudo ./setup-all-ubuntu-based   (dùng sudo, KHÔNG dùng su — cần SUDO_USER)
 
@@ -31,10 +32,11 @@ run_step() {
     ok "Hoàn tất: $name"
 }
 
-run_step "Chuỗi cài đặt cơ bản (de-snap, flatpak, apps, lotus)" setup-basic-ubuntu-based.sh
+run_step "Chuỗi cài đặt cơ bản (del-snap, flatpak, apps, lotus)" setup-basic-ubuntu-based.sh
 run_step "Claude Desktop + Claude Code CLI"                    extras/install-claude-deb.sh
 run_step "Phím tắt chuyển input method"                       extras/set-ime-shortcut.sh
 run_step "Slack, Mattermost, Discord"                           extras/install-chat-apps.sh
+run_step "Thành phần dev (Node.js)"                               extras/install-basic-dev-works.sh
 
 printf '\n\033[1;32mHoàn tất toàn bộ!\033[0m Khởi động lại máy để áp dụng mọi thứ.\n'
 printf 'Sau khi khởi động lại:\n'
