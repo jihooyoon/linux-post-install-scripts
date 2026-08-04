@@ -1,5 +1,5 @@
 #!/bin/sh
-# generalize-tuxedo-os.sh — Gỡ các app Tuxedo (Control Center, WebFAI) khỏi Tuxedo OS
+# generalize-tuxedo-os.sh — Gỡ các app Tuxedo (Control Center, WebFAI, dGPU Guide) khỏi Tuxedo OS
 # Dùng khi muốn biến Tuxedo OS thành Ubuntu/Debian "thuần" hơn.
 # Chạy: sudo ./generalize-tuxedo-os.sh
 
@@ -38,5 +38,23 @@ fi
 
 apt-get autoremove -y --purge || true
 
+# --- Bước 2: Xóa dGPU Guide khỏi application launcher ---
+# Tuxedo OS first-boot (copy-guide.sh) copy dgpu.desktop ("dGPU Guide") vào
+# ~/.local/share/applications + Desktop khi máy có 2 GPU. Autostart còn lại
+# sẽ copy lại file mỗi lần đăng nhập nên phải xóa luôn.
+info "Bước 2: Xóa dGPU Guide khỏi application launcher..."
+TARGET_HOME=$(eval echo "~${SUDO_USER:-$USER}")
+
+for f in \
+    "$TARGET_HOME/.local/share/applications/dgpu.desktop" \
+    "$TARGET_HOME/Desktop/dgpu.desktop" \
+    "$TARGET_HOME/.config/autostart/copy-guide.desktop"; do
+    if [ -f "$f" ]; then
+        rm -f "$f"
+        ok "Đã xóa $(basename "$f")"
+    fi
+done
+
 printf '\n\033[1;32mHoàn tất!\033[0m\n'
 printf '  - Tuxedo apps: đã gỡ (Control Center, WebFAI Creator)\n'
+printf '  - dGPU Guide: đã xóa khỏi application launcher\n'
