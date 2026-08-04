@@ -6,7 +6,10 @@ Scripts for configuring Linux distros after clean install
 
 - Debullshit: Mục tiêu gỡ hoàn toàn snap, tránh bloat
 - Bật flatpak
-- Cài một số thứ cơ bản sẵn cho người Việt
+- Cài lại các app cơ bản (browser, email client, chuyển libreoffice thành freeoffice,...)
+- Cài bộ gõ tiếng Việt dùng ổn nhất hiện tại (fcitx5-lotus)
+- Setup các extras (chat apps, claude, shortcut chuyển bộ gõ (Alt + Space với Ubuntu/GNOME và Win + Space với các môi trường còn lại),...)
+
 
 # Cách chạy:
 
@@ -24,4 +27,10 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 
 - Chạy file `setup-basic-ubuntu-based.sh` để setup những thành phần cơ bản cho Ubuntu-based distro
 - Chạy file `setup-all-ubuntu-based.sh` để setup những thành phần cơ bản kèm toàn bộ extras cho Ubuntu-based distro
+
+**Note:**
 - Các scripts con có thể chạy độc lập, tuy nhiên đa phần scripts phục vụ nhu cầu chạy độc lập sẽ nằm trong `extras`, các scripts trong `atom-scripts` gần như luôn cần
+- Các extension cần thiết nên cài từ GNOME Extension Manager:
+  - KIMPanel (hiển thị VI/EN trên status bar): <https://extensions.gnome.org/extension/261/kimpanel>
+  - Copyous (Clipboard Manager - Win + V): <https://extensions.gnome.org/extension/8834/copyous>
+
