@@ -60,7 +60,7 @@ done
 # Vì vậy: backup file trước, purge sau, rồi khôi phục lại đúng như cũ, chỉ đổi
 # Current=tuxedo → Current=breeze (các cài đặt khác giữ nguyên).
 info "Bước 3: Đổi SDDM theme sang Breeze, gỡ theme + wallpaper Tuxedo..."
-if ! dpkg -l sddm-theme-breeze >/dev/null 2>&1; then
+if ! dpkg -s sddm-theme-breeze >/dev/null 2>&1; then
     info "Đang cài sddm-theme-breeze..."
     apt-get install -y sddm-theme-breeze
 fi
