@@ -17,10 +17,16 @@ Scripts for configuring Linux distros after clean install
 **Một lệnh duy nhất (không cần clone tay)** — chạy trên máy mới vừa cài xong:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote-all.sh | sudo sh
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh
 ```
 
-`install-remote-all.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh`, rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
+Chỉ setup phần basic (không cài extras):
+
+```bash
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --basic
+```
+
+`install-remote.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh` (thêm `--basic` để chỉ chạy `setup-basic-ubuntu-based.sh`), rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
 
 **Hoặc clone rồi chạy tay:**
 
