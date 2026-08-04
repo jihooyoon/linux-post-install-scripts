@@ -1,5 +1,5 @@
 #!/bin/sh
-# generalize-tuxedo-os.sh — Gỡ các app + theme SDDM/Plasma + wallpaper Tuxedo khỏi Tuxedo OS
+# generalize-tuxedo-os.sh — Gỡ các app + theme SDDM/Plasma + wallpaper + avatar Tuxedo khỏi Tuxedo OS
 # Dùng khi muốn biến Tuxedo OS thành Ubuntu/Debian "thuần" hơn.
 # Chạy: sudo ./generalize-tuxedo-os.sh
 
@@ -97,7 +97,44 @@ else
     warn "Không cài được sddm-theme-breeze — giữ nguyên theme SDDM hiện tại"
 fi
 
+# --- Bước 4: Bỏ avatar mặc định Tuxedo (face.png), dùng icon người mặc định của KDE ---
+# Tuxedo set avatar qua tuxedo-theme-plasma.postinst (copy /usr/share/tuxedo/face.png):
+#   - /usr/share/plasma/avatars/face.png  → avatar dùng chung
+#   - /etc/skel/.face                     → copy vào home user MỚI; accountsservice đọc
+#                                           ~/.face lần đăng nhập đầu rồi ghi Icon=
+#   - ~/.face trong home user đang có      → còn thừa lại, xóa luôn
+# Bước 3 purge tuxedo-theme-plasma đã xóa 2 file đầu (theo postrm) — ở đây rm lại cho
+# chắc và xóa Icon= trong accountsservice để KDE/SDDM fallback về icon người trắng
+# trên nền xám mặc định, không còn dính logo Tuxedo.
+info "Bước 4: Bỏ avatar mặc định Tuxedo (face.png), dùng icon KDE mặc định..."
+
+# Xóa Icon= trong accountsservice (đang trỏ tới face.png)
+for f in /var/lib/AccountsService/users/*; do
+    [ -f "$f" ] || continue
+    if grep -q '^Icon=' "$f"; then
+        sed -i '/^Icon=/d' "$f"
+        ok "Đã bỏ Icon= trong $(basename "$f")"
+    fi
+done
+
+# Xóa avatar Tuxedo ở mọi nơi: file chung, /etc/skel (user mới), ~/.face (user đang có)
+for f in /usr/share/plasma/avatars/face.png /etc/skel/.face /etc/skel/.face.icon; do
+    if [ -f "$f" ]; then
+        rm -f "$f"
+        ok "Đã xóa $f"
+    fi
+done
+
+getent passwd | awk -F: '$3>=1000 && $3<65534 {print $6}' | while read -r home; do
+    [ -d "$home" ] || continue
+    if [ -f "$home/.face" ] || [ -f "$home/.face.icon" ]; then
+        rm -f "$home/.face" "$home/.face.icon"
+        ok "Đã xóa $home/.face"
+    fi
+done
+
 printf '\n\033[1;32mHoàn tất!\033[0m\n'
 printf '  - Tuxedo apps: đã gỡ (Control Center, WebFAI Creator)\n'
 printf '  - dGPU Guide: đã xóa khỏi application launcher\n'
 printf '  - SDDM/Plasma theme: đã đổi sang Breeze, gỡ theme + wallpaper Tuxedo\n'
+printf '  - Avatar mặc định: đã bỏ face.png, dùng icon người mặc định của KDE\n'
