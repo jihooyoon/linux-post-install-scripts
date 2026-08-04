@@ -1,9 +1,9 @@
 #!/bin/sh
 # install-basic-ubuntu-based.sh — Chạy chuỗi script cài đặt cơ bản cho Ubuntu-based
 # Thứ tự: del-snap → flatpak → basic apps → lotus
-#   - del-snap trước: gỡ sạch snap/snapd + thay Firefox, Thunderbird bằng .deb
-#   - flatpak: Flatpak + Flathub + GNOME Software
-#   - basic apps: LibreOffice, fcitx5, FreeOffice, Chrome, VS Code
+#   - del-snap trước: gỡ sạch snap/snapd + cài Firefox .deb, pin Thunderbird
+#   - flatpak: Flatpak + Flathub
+#   - basic apps: LibreOffice, fcitx5, FreeOffice, Chrome, Chromium, VS Code
 #   - lotus: bộ gõ tiếng Việt Lotus cho fcitx5 + env
 # Lưu ý: các script đơn vị nằm trong thư mục con atom-scripts/ cạnh file này.
 # Chạy: sudo ./install-basic-ubuntu-based.sh   (dùng sudo, KHÔNG dùng su — cần SUDO_USER)
@@ -39,7 +39,7 @@ run_step() {
 
 if is_tuxedo; then
     info "Phát hiện Tuxedo OS — thay bước de-snap bằng generalize-tuxedo-os"
-    run_step "Gỡ app Tuxedo + cài Chromium"      atom-scripts/generalize-tuxedo-os.sh
+    run_step "Gỡ app Tuxedo (Control Center...)" atom-scripts/generalize-tuxedo-os.sh
 else
     run_step "Gỡ snap, thay thế bằng các app deb" atom-scripts/del-snap-n-replace-apps.sh
 fi
