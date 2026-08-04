@@ -7,7 +7,6 @@ set -e
 
 info() { printf '\033[1;34m[lotus]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
-warn() { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # --- Kiểm tra quyền root ---
@@ -44,28 +43,66 @@ else
     die "fcitx5-lotus cài chưa thành công — kiểm tra lại kết nối hoặc codename $CODENAME"
 fi
 
-# --- Bước 6: Biến môi trường fcitx5 trong ~/.bash_profile ---
-# Đơn giản theo yêu cầu: ghi vào ~/.bash_profile của user đang chạy sudo.
-# Lưu ý: ~/.bash_profile chỉ được đọc bởi bash login shell (SSH, tty) —
-# app GUI và terminal mở từ desktop (non-login shell) không đọc file này.
-info "Bước 6: Ghi biến môi trường fcitx5 vào ~/.bash_profile..."
-if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-    HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-    if grep -q '^export XMODIFIERS=@im=fcitx' "$HOME_USER/.bash_profile" 2>/dev/null; then
-        ok "Biến fcitx5 đã có trong $HOME_USER/.bash_profile — bỏ qua"
-    else
-        cat >> "$HOME_USER/.bash_profile" <<'EOF'
-export XMODIFIERS=@im=fcitx
-export QT_IM_MODULE=fcitx
-export QT_IM_MODULES="wayland;fcitx"
-export GLFW_IM_MODULE=ibus
-EOF
-        ok "Đã ghi vào $HOME_USER/.bash_profile (đăng nhập lại để áp dụng)"
-    fi
+# --- Bước 6: Biến môi trường fcitx5 trong /etc/environment.d/ ---
+# /etc/environment.d/*.conf được systemd user manager áp dụng khi bắt đầu
+# phiên đăng nhập — Ubuntu 20.04+ chạy phiên GNOME/KDE dưới systemd nên mọi
+# app GUI khởi động từ desktop đều nhận được biến này. Tạo file riêng thay vì
+# sửa /etc/environment: không đụng file dùng chung, dễ gỡ bỏ, chuẩn systemd.
+# Lưu ý: file environment.d dùng KEY=VALUE, KHÔNG có "export".
+info "Bước 6: Tạo /etc/environment.d/fcitx5.conf..."
+if [ -f /etc/environment.d/fcitx5.conf ]; then
+    ok "Đã có /etc/environment.d/fcitx5.conf — bỏ qua"
 else
-    warn "Không xác định được user (chạy không qua sudo) — bỏ qua bước env"
+    mkdir -p /etc/environment.d
+    cat > /etc/environment.d/fcitx5.conf <<'EOF'
+XMODIFIERS=@im=fcitx
+QT_IM_MODULE=fcitx
+QT_IM_MODULES="wayland;fcitx"
+GLFW_IM_MODULE=ibus
+EOF
+    ok "Đã tạo /etc/environment.d/fcitx5.conf (đăng nhập lại để áp dụng)"
 fi
 
-printf '\nCách bật: mở \033[1mfcitx5-config\033[0m → tab \033[1mInput Method\033[0m → Add → tìm \033[1mLotus\033[0m.\n'
+# --- Bước 7: Thêm Lotus vào fcitx5 profile của user ---
+# fcitx5 lưu danh sách bộ gõ trong ~/.config/fcitx5/profile. Ghi sẵn Lotus vào
+# group Default để sau đăng nhập gõ được luôn, không phải Add tay qua fcitx5-config.
+info "Bước 7: Thêm Lotus vào fcitx5 profile..."
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+    HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    PROFILE="$HOME_USER/.config/fcitx5/profile"
+
+    if [ -f "$PROFILE" ] && grep -q '^Name=lotus$' "$PROFILE"; then
+        ok "Lotus đã có trong fcitx5 profile — bỏ qua"
+    else
+        sudo -u "$SUDO_USER" mkdir -p "$HOME_USER/.config/fcitx5"
+        if [ -f "$PROFILE" ]; then
+            # Profile đã có — thêm Lotus với index tiếp theo trong group Default
+            N=$(grep -c '^\[Groups/0/Items/' "$PROFILE")
+            printf '\n[Groups/0/Items/%s]\nName=lotus\nLayout=\n' "$N" >> "$PROFILE"
+        else
+            # Chưa có profile (fcitx5 chưa từng chạy) — tạo mới: bàn phím us + Lotus
+            cat > "$PROFILE" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=lotus
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=lotus
+Layout=
+EOF
+        fi
+        chown "$SUDO_USER" "$PROFILE"
+        ok "Đã thêm Lotus vào fcitx5 profile (đăng nhập lại để áp dụng)"
+    fi
+else
+    warn "Không xác định được user (chạy không qua sudo) — bỏ qua bước profile"
+fi
+
+printf '\nCách gõ: \033[1mCtrl+Space\033[0m để chuyển giữa bàn phím tiếng Anh và \033[1mLotus\033[0m (đã thêm sẵn vào profile).\n'
 printf 'Gợi ý: nên dùng cùng fcitx5 (install-basic-apps-deb.sh đã cài sẵn).\n'
-printf 'Nếu app X11 GTK3 cũ không gõ được: thêm GTK_IM_MODULE=fcitx vào /etc/environment.\n'
+printf 'Nếu app X11 GTK3 cũ không gõ được: thêm GTK_IM_MODULE=fcitx vào /etc/environment.d/fcitx5.conf.\n'

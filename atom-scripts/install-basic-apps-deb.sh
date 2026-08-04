@@ -41,6 +41,13 @@ case "$XDG_CURRENT_DESKTOP" in
         info "Phát hiện KDE — thêm kde-config-fcitx5 (module cấu hình trong System Settings)"
         ;;
     *GNOME*)
+        # Extension Manager: cần để cài/bật extension kimpanel thủ công từ extensions.gnome.org
+        if apt-cache show gnome-shell-extension-manager >/dev/null 2>&1; then
+            PKGS="$PKGS gnome-shell-extension-manager"
+            info "Phát hiện GNOME — cài thêm Extension Manager (quản lý extension kimpanel)"
+        else
+            warn "GNOME: repo không có gnome-shell-extension-manager — nếu cần thì cài qua flatpak com.mattjakeman.ExtensionManager"
+        fi
         # kimpanel: hiển thị bộ gõ trên status bar + cửa sổ gợi ý (Wayland cần mới thấy được)
         if apt-cache show gnome-shell-extension-kimpanel >/dev/null 2>&1; then
             PKGS="$PKGS gnome-shell-extension-kimpanel"

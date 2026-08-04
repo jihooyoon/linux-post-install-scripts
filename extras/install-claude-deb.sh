@@ -57,6 +57,26 @@ else
     warn "Không xác định được user (chạy không qua sudo) — bỏ qua CLI, chỉ cài Desktop"
 fi
 
+# --- Bước 5: Thêm ~/.local/bin vào PATH của user ---
+# Native installer cài CLI vào ~/.local/bin, nhưng thư mục này thường chưa có
+# trong PATH mặc định của shell → thêm vào .bashrc/.zshrc (file chưa có thì
+# tự tạo) để chạy được lệnh `claude` từ terminal.
+info "Bước 5: Thêm ~/.local/bin vào PATH của user..."
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+    HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    for rc in "$HOME_USER/.bashrc" "$HOME_USER/.zshrc"; do
+        if grep -q 'HOME/.local/bin' "$rc" 2>/dev/null; then
+            ok "$(basename "$rc") đã có ~/.local/bin trong PATH — bỏ qua"
+        else
+            printf '\n# Thêm ~/.local/bin vào PATH (do install-claude-deb.sh)\n%s\n' \
+                'export PATH="$HOME/.local/bin:$PATH"' >> "$rc"
+            ok "Đã thêm ~/.local/bin vào PATH trong $(basename "$rc")"
+        fi
+    done
+else
+    warn "Không xác định được user — bỏ qua bước thêm PATH"
+fi
+
 printf '\n\033[1;32mHoàn tất!\033[0m Bước tiếp theo:\n'
 printf '  - Claude Desktop: mở từ app launcher hoặc lệnh \033[1mclaude-desktop\033[0m, đăng nhập tài khoản Anthropic\n'
 printf '  - Claude Code: mở terminal mới, chạy \033[1mclaude\033[0m để đăng nhập lần đầu\n'

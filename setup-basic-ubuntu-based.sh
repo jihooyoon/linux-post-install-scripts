@@ -39,5 +39,5 @@ run_step "Bộ gõ tiếng Việt Lotus"           atom-scripts/install-lotus-ub
 
 printf '\n\033[1;32mHoàn tất toàn bộ chuỗi!\033[0m Nên khởi động lại máy để áp dụng.\n'
 printf 'Script tùy chọn khác (chạy riêng nếu cần):\n'
-printf '  - set-ime-shortcut-win-space.sh — Super+Space chuyển input method\n'
+printf '  - set-ime-shortcut.sh         — Phím tắt chuyển input method (GNOME: Alt+Space / KDE: Super+Space)\n'
 printf '  - install-claude-deb.sh         — Claude Desktop + Claude Code CLI\n'
