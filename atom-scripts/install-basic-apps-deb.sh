@@ -1,5 +1,5 @@
 #!/bin/sh
-# install-basic-apps-deb.sh — Ubuntu/Debian: gỡ sạch LibreOffice, cài fcitx5 + FreeOffice
+# install-basic-apps-deb.sh — Ubuntu/Debian: gỡ sạch LibreOffice, cài fcitx5 (purge ibus, autostart) + FreeOffice
 # Chạy: sudo ./install-basic-apps-deb.sh
 
 set -e
@@ -80,6 +80,51 @@ if [ "$KIM" -eq 1 ]; then
     printf 'Nếu chưa thấy bộ gõ: mở app "Extensions" (gnome-extensions-app) và bật kimpanel.\n'
 fi
 
+# --- Bước 2b: Purge ibus + autostart fcitx5 ---
+# ibus là IM framework mặc định của Ubuntu, khởi động qua gnome-shell/DBus (không có
+# XDG autostart để tắt) → muốn tắt hẳn thì purge sạch. gnome-shell chỉ cần thư viện
+# libibus nên vẫn hoạt động tốt sau khi purge.
+info "Bước 2b: Purge ibus và thêm fcitx5 vào autostart..."
+if dpkg -l ibus 2>/dev/null | grep -q '^ii'; then
+    apt-get purge -y ibus
+    apt-get autoremove -y --purge
+    # Dọn config user còn sót (đồng phong cách bước gỡ LibreOffice)
+    rm -rf /root/.config/ibus /root/.cache/ibus \
+           /home/*/.config/ibus /home/*/.cache/ibus
+    ok "Đã purge sạch ibus"
+else
+    ok "ibus chưa được cài — bỏ qua"
+fi
+
+# Autostart fcitx5 qua XDG (~/.config/autostart): hoạt động trên GNOME cả X11 lẫn
+# Wayland (Wayland không đọc Xsession.d của im-config). Dùng desktop file của gói
+# để giữ đúng Icon/Exec.
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+    HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    AUTOSTART="$HOME_USER/.config/autostart"
+    sudo -u "$SUDO_USER" mkdir -p "$AUTOSTART"
+    if [ -f /usr/share/applications/org.fcitx.Fcitx5.desktop ]; then
+        sudo -u "$SUDO_USER" cp /usr/share/applications/org.fcitx.Fcitx5.desktop "$AUTOSTART/"
+    else
+        # Fallback: tạo entry tối thiểu
+        cat > "$AUTOSTART/org.fcitx.Fcitx5.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=fcitx5
+Comment=Start fcitx5 input method framework
+Exec=fcitx5
+Icon=fcitx
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Phase=Applications
+EOF
+        chown "$SUDO_USER" "$AUTOSTART/org.fcitx.Fcitx5.desktop"
+    fi
+    ok "Đã thêm fcitx5 vào autostart của $SUDO_USER"
+else
+    warn "Không xác định được user — bỏ qua bước autostart"
+fi
+
 ok "Đã cài fcitx5 (đăng xuất/đăng nhập lại để áp dụng)"
 
 # --- Bước 3: Cài FreeOffice 2024 ---
@@ -152,7 +197,7 @@ ok "Đã cài Visual Studio Code"
 
 printf '\n\033[1;32mHoàn tất!\033[0m Tóm tắt:\n'
 printf '  - LibreOffice: đã gỡ sạch\n'
-printf '  - fcitx5: cài xong (đăng xuất/đăng nhập lại để áp dụng)\n'
+printf '  - fcitx5: cài xong, đã purge ibus, autostart sẵn (đăng xuất/đăng nhập lại)\n'
 printf '  - FreeOffice 2024: đã cài\n'
 printf '  - Firefox + Thunderbird: bản .deb từ PPA mozillateam\n'
 printf '  - Google Chrome: repo chính thức của Google\n'
