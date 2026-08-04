@@ -98,7 +98,7 @@ else
 fi
 
 # --- Bước 3b: Reset toàn bộ theme Plasma về mặc định KDE6 (global theme) ---
-# Ưu tiên dùng lệnh chuẩn plasma-apply-lookandfeel -a org.kde.breeze.desktop
+# Ưu tiên dùng lệnh chuẩn plasma-apply-lookandfeel -a org.kde.breezetwilight.desktop
 # (áp màu, plasma style, window decoration, splash + SDDM theme — SDDM cần
 # quyền ghi /etc/sddm.conf.d, script chạy root nên OK).
 # Icon/font/sound KHÔNG nằm trong LnF package → icon ghi lẻ bằng kwriteconfig6.
@@ -110,8 +110,8 @@ kcfg() { HOME="$TARGET_HOME" XDG_CONFIG_HOME="$TARGET_HOME/.config" kwriteconfig
 
 if command -v plasma-apply-lookandfeel >/dev/null 2>&1; then
     if HOME="$TARGET_HOME" XDG_CONFIG_HOME="$TARGET_HOME/.config" \
-        plasma-apply-lookandfeel -a org.kde.breeze.desktop; then
-        ok "Đã áp global theme org.kde.breeze.desktop"
+        plasma-apply-lookandfeel -a org.kde.breezetwilight.desktop; then
+        ok "Đã áp global theme org.kde.breezetwilight.desktop"
         # LnF package không gồm icon theme — ghi lẻ cho chắc
         kcfg --file kdeglobals --group Icons --key Theme breeze
         ok "Icon theme đã ghi breeze (kwriteconfig6)"
@@ -126,8 +126,8 @@ fi
 # Fallback: không có lệnh chuẩn (hoặc fail) → ghi lẻ toàn bộ từng key
 if [ "${applied:-0}" -ne 1 ] && command -v kwriteconfig6 >/dev/null 2>&1; then
     info "Ghi lẻ toàn bộ theme key về mặc định KDE6..."
-    kcfg --file kdeglobals --group KDE --key LookAndFeelPackage org.kde.breeze.desktop
-    kcfg --file kdeglobals --group KDE --key widgetStyle Breeze
+    kcfg --file kdeglobals --group KDE --key LookAndFeelPackage org.kde.breezetwilight.desktop
+    kcfg --file kdeglobals --group KDE --key widgetStyle Breeze-Dark
     kcfg --file kdeglobals --group KDE --key cursorTheme breeze_cursors
     kcfg --file kdeglobals --group General --key ColorScheme Breeze
     kcfg --file kdeglobals --group Icons --key Theme breeze
