@@ -7,6 +7,7 @@ set -e
 
 info() { printf '\033[1;34m[lotus]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
+warn() { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # --- Kiểm tra quyền root ---
@@ -49,19 +50,69 @@ fi
 # app GUI khởi động từ desktop đều nhận được biến này. Tạo file riêng thay vì
 # sửa /etc/environment: không đụng file dùng chung, dễ gỡ bỏ, chuẩn systemd.
 # Lưu ý: file environment.d dùng KEY=VALUE, KHÔNG có "export".
+# KDE Plasma 6 (Wayland) thì KHÔNG set QT_IM_MODULE/QT_IM_MODULES: KDE tự quản
+# lý input method qua kwinrc (mục "Virtual Keyboard" trong System Settings, xem
+# Bước 6b) và tự đặt biến môi trường — set tay bị cảnh báo, đẩy app vào nhánh XIM.
+# Chạy qua sudo nên XDG_CURRENT_DESKTOP thường bị reset (rỗng) — fallback đoán
+# theo process của session đồ họa đang chạy của user (giống set-ime-shortcut.sh)
+DESKTOP=$XDG_CURRENT_DESKTOP
+if [ -z "$DESKTOP" ]; then
+    pgrep -u "$SUDO_USER" -x gnome-shell >/dev/null 2>&1 && DESKTOP=GNOME
+    pgrep -u "$SUDO_USER" -x plasmashell >/dev/null 2>&1 && DESKTOP=KDE
+fi
+
 info "Bước 6: Tạo /etc/environment.d/fcitx5.conf..."
 if [ -f /etc/environment.d/fcitx5.conf ]; then
     ok "Đã có /etc/environment.d/fcitx5.conf — bỏ qua"
+    case "$DESKTOP" in
+        *KDE*|*Plasma*)
+            grep -q '^QT_IM_MODULE' /etc/environment.d/fcitx5.conf \
+                && warn "File cũ còn QT_IM_* — trên KDE nên xóa 2 dòng đó để hết warning"
+            ;;
+    esac
 else
     mkdir -p /etc/environment.d
     cat > /etc/environment.d/fcitx5.conf <<'EOF'
 XMODIFIERS=@im=fcitx
-QT_IM_MODULE=fcitx
-QT_IM_MODULES="wayland;fcitx"
 GLFW_IM_MODULE=ibus
 EOF
+    case "$DESKTOP" in
+        *KDE*|*Plasma*)
+            ok "Phát hiện KDE — không set QT_IM_* (KDE tự quản lý qua kwinrc, xem Bước 6b)"
+            ;;
+        *)
+            cat >> /etc/environment.d/fcitx5.conf <<'EOF'
+QT_IM_MODULE=fcitx
+QT_IM_MODULES="wayland;fcitx"
+EOF
+            ok "Phát hiện desktop khác (GNOME...) — đã set QT_IM_MODULE/QT_IM_MODULES cho app Qt"
+            ;;
+    esac
     ok "Đã tạo /etc/environment.d/fcitx5.conf (đăng nhập lại để áp dụng)"
 fi
+
+# --- Bước 6b: KDE Plasma — chỉ định fcitx5 là Wayland input method ---
+# Tương đương System Settings → Keyboard → Virtual Keyboard → "Fcitx 5":
+# KCM ghi ~/.config/kwinrc mục [Wayland] key InputMethod[$e]. KWin dùng mục
+# này để khởi động fcitx5 và plasma-session tự đặt biến môi trường.
+case "$DESKTOP" in
+    *KDE*|*Plasma*)
+        if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+            HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+            KWINRC="$HOME_USER/.config/kwinrc"
+            sudo -u "$SUDO_USER" mkdir -p "$HOME_USER/.config"
+            if grep -q 'org.fcitx.Fcitx5.desktop' "$KWINRC" 2>/dev/null; then
+                ok "kwinrc đã trỏ fcitx5 — bỏ qua"
+            elif grep -q '^InputMethod' "$KWINRC" 2>/dev/null; then
+                warn "kwinrc InputMethod trỏ input method khác — giữ nguyên (tự chỉnh trong System Settings → Keyboard → Virtual Keyboard)"
+            else
+                printf '\n[Wayland]\nInputMethod[$e]=/usr/share/applications/org.fcitx.Fcitx5.desktop\n' >> "$KWINRC"
+                chown "$SUDO_USER" "$KWINRC"
+                ok "Đã ghi kwinrc InputMethod=fcitx5 (đăng nhập lại để áp dụng)"
+            fi
+        fi
+        ;;
+esac
 
 # --- Bước 7: Thêm Lotus vào fcitx5 profile của user ---
 # fcitx5 lưu danh sách bộ gõ trong ~/.config/fcitx5/profile. Ghi sẵn Lotus vào
@@ -230,3 +281,4 @@ fi
 printf '\nCách gõ: \033[1mCtrl+Space\033[0m để chuyển giữa bàn phím tiếng Anh và \033[1mLotus\033[0m (đã thêm sẵn vào profile).\n'
 printf 'Gợi ý: nên dùng cùng fcitx5 (install-basic-apps-deb.sh đã cài sẵn).\n'
 printf 'Nếu app X11 GTK3 cũ không gõ được: thêm GTK_IM_MODULE=fcitx vào /etc/environment.d/fcitx5.conf.\n'
+printf 'KDE chạy phiên X11 (không phải Wayland): cần thêm QT_IM_MODULE=fcitx vào file đó.\n'
