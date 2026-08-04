@@ -10,9 +10,14 @@ Scripts for configuring Linux distros after clean install
 
 # Cách chạy:
 
-**Một lệnh duy nhất (không cần clone tay):**
+**Dành cho Ubuntu-based** (Ubuntu, Linux Mint, Pop!_OS, Zorin...).
+
+**Một lệnh duy nhất (không cần clone tay)** — chạy trên máy mới vừa cài xong:
 
 ```bash
+# Cài curl nếu máy chưa có (im lặng, không hỏi xác nhận; không làm gì nếu đã có)
+command -v curl >/dev/null 2>&1 || { sudo apt-get update -q; sudo apt-get install -y -q curl; }
+# Tải và cài toàn bộ, tự dọn dẹp khi xong
 curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote-all.sh | sudo bash
 ```
 
