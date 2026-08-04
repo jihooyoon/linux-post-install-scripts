@@ -97,6 +97,50 @@ else
     warn "Không cài được sddm-theme-breeze — giữ nguyên theme SDDM hiện tại"
 fi
 
+# --- Bước 3b: Reset toàn bộ theme Plasma về mặc định KDE6 (global theme) ---
+# Ưu tiên dùng lệnh chuẩn plasma-apply-lookandfeel -a org.kde.breeze.desktop
+# (áp màu, plasma style, window decoration, splash + SDDM theme — SDDM cần
+# quyền ghi /etc/sddm.conf.d, script chạy root nên OK).
+# Icon/font/sound KHÔNG nằm trong LnF package → icon ghi lẻ bằng kwriteconfig6.
+# Nếu lệnh chuẩn không có/fail → fallback ghi lẻ TOÀN BỘ từng key.
+# Chạy SAU purge vì purge tuxedo-theme-plasma xóa luôn conffile kde_settings.conf.
+# HOME/XDG_CONFIG_HOME trỏ vào user thật để config rơi vào ~/.config đúng người.
+info "Bước 3b: Reset theme Plasma về mặc định KDE6 (global theme Breeze)..."
+kcfg() { HOME="$TARGET_HOME" XDG_CONFIG_HOME="$TARGET_HOME/.config" kwriteconfig6 "$@"; }
+
+if command -v plasma-apply-lookandfeel >/dev/null 2>&1; then
+    if HOME="$TARGET_HOME" XDG_CONFIG_HOME="$TARGET_HOME/.config" \
+        plasma-apply-lookandfeel -a org.kde.breeze.desktop; then
+        ok "Đã áp global theme org.kde.breeze.desktop"
+        # LnF package không gồm icon theme — ghi lẻ cho chắc
+        kcfg --file kdeglobals --group Icons --key Theme breeze
+        ok "Icon theme đã ghi breeze (kwriteconfig6)"
+        applied=1
+    else
+        warn "plasma-apply-lookandfeel thất bại — sẽ ghi lẻ toàn bộ"
+    fi
+else
+    warn "Không tìm thấy plasma-apply-lookandfeel — sẽ ghi lẻ toàn bộ"
+fi
+
+# Fallback: không có lệnh chuẩn (hoặc fail) → ghi lẻ toàn bộ từng key
+if [ "${applied:-0}" -ne 1 ] && command -v kwriteconfig6 >/dev/null 2>&1; then
+    info "Ghi lẻ toàn bộ theme key về mặc định KDE6..."
+    kcfg --file kdeglobals --group KDE --key LookAndFeelPackage org.kde.breeze.desktop
+    kcfg --file kdeglobals --group KDE --key widgetStyle Breeze
+    kcfg --file kdeglobals --group KDE --key cursorTheme breeze_cursors
+    kcfg --file kdeglobals --group General --key ColorScheme Breeze
+    kcfg --file kdeglobals --group Icons --key Theme breeze
+    kcfg --file plasmarc --group Theme --key name default
+    kcfg --file kwinrc --group org.kde.kdecoration2 --key library org.kde.breeze
+    kcfg --file kwinrc --group org.kde.kdecoration2 --key theme Breeze
+    kcfg --file ksplashrc --group KSplash --key Theme org.kde.breeze
+    kcfg --file kscreenlockerrc --group Greeter --key Theme org.kde.breeze.desktop
+    ok "Đã ghi lẻ toàn bộ theme key (kwriteconfig6)"
+elif [ "${applied:-0}" -ne 1 ]; then
+    warn "Không tìm thấy kwriteconfig6 — bỏ qua bước reset theme"
+fi
+
 # --- Bước 4: Bỏ avatar mặc định Tuxedo (face.png), dùng icon người mặc định của KDE ---
 # Tuxedo set avatar qua tuxedo-theme-plasma.postinst (copy /usr/share/tuxedo/face.png):
 #   - /usr/share/plasma/avatars/face.png  → avatar dùng chung
@@ -137,4 +181,5 @@ printf '\n\033[1;32mHoàn tất!\033[0m\n'
 printf '  - Tuxedo apps: đã gỡ (Control Center, WebFAI Creator)\n'
 printf '  - dGPU Guide: đã xóa khỏi application launcher\n'
 printf '  - SDDM/Plasma theme: đã đổi sang Breeze, gỡ theme + wallpaper Tuxedo\n'
+printf '  - Theme Plasma: đã reset global theme về mặc định KDE6 (Breeze)\n'
 printf '  - Avatar mặc định: đã bỏ face.png, dùng icon người mặc định của KDE\n'
