@@ -149,13 +149,13 @@ ok "Đã cài Google Chrome"
 info "Bước 5: Cài Chromium..."
 HAS_CHROMIUM=0
 for pkg in chromium chromium-browser; do
-    if apt-cache show "$pkg" >/dev/null 2>&1; then
-        # Bỏ qua nếu là snap transitional (Depends/Pre-Depends: snapd)
-        if ! apt-cache show "$pkg" 2>/dev/null | grep -qE '(Pre-?)?Depends:.*snapd'; then
-            HAS_CHROMIUM=1
-            CHROMIUM_PKG="$pkg"
-            break
-        fi
+    # Lưu ý: gói purely virtual (vd: chromium trên Ubuntu 24.04) — apt-cache show
+    # vẫn exit 0 nhưng stdout rỗng, nên phải kiểm tra record có nội dung thật
+    if RECORD=$(apt-cache show "$pkg" 2>/dev/null) && [ -n "$RECORD" ] && \
+       ! printf '%s\n' "$RECORD" | grep -qE '(Pre-?)?Depends:.*snapd'; then
+        HAS_CHROMIUM=1
+        CHROMIUM_PKG="$pkg"
+        break
     fi
 done
 
