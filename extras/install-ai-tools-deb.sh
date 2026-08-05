@@ -193,6 +193,7 @@ else
         printf '\n\033[1;33mĐã thoát. Các bước đã chạy: curl + gpg + thêm PATH.\033[0m\n'
         exit 0
     fi
+    info "Đã nhận input: '$USER_CHOICE' → chọn mục: $SELECTED"
 fi
 
 # Chạy các mục đã chọn
@@ -202,6 +203,7 @@ for num in $SELECTED; do
         [ -z "$label" ] && continue
         if [ "$i" -eq "$num" ]; then
             printf '\n'
+            info "PROCESSING mục $num ($label) — hàm: $func"
             $func
             break
         fi

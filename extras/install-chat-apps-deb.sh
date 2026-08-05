@@ -1,8 +1,8 @@
 #!/bin/sh
-# install-chat-apps.sh — Ubuntu/Debian: cài Slack, Mattermost, Discord bản .deb
-# Chạy: sudo ./install-chat-apps.sh            (hiện menu chọn app)
-#       sudo ./install-chat-apps.sh --all | -a (cài tất cả, không hỏi)
-#       sudo ./install-chat-apps.sh --help | -h (trợ giúp)
+# install-chat-apps-deb.sh — Ubuntu/Debian: cài Slack, Mattermost, Discord bản .deb
+# Chạy: sudo ./install-chat-apps-deb.sh            (hiện menu chọn app)
+#       sudo ./install-chat-apps-deb.sh --all | -a (cài tất cả, không hỏi)
+#       sudo ./install-chat-apps-deb.sh --help | -h (trợ giúp)
 
 set -e
 
@@ -159,6 +159,7 @@ else
         printf '\n\033[1;33mĐã thoát. Các bước đã chạy: cập nhật gói + curl + gpg.\033[0m\n'
         exit 0
     fi
+    info "Đã nhận input: '$USER_CHOICE' → chọn mục: $SELECTED"
 fi
 
 # Chạy các mục đã chọn
@@ -168,6 +169,7 @@ for num in $SELECTED; do
         [ -z "$label" ] && continue
         if [ "$i" -eq "$num" ]; then
             printf '\n'
+            info "PROCESSING mục $num ($label) — hàm: $func"
             $func
             break
         fi

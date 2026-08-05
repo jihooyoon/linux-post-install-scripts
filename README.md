@@ -65,7 +65,7 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 | `setup-basic-ubuntu-based.sh` | `--silent` (truyền `--all` xuống script con) / `--help` |
 | `install-basic-apps-deb.sh` | `--all`, `-a` (cài tất cả app) / `--help` |
 | `install-ai-tools-deb.sh` | `--all`, `-a` / `--help` |
-| `install-chat-apps.sh` | `--all`, `-a` / `--help` |
+| `install-chat-apps-deb.sh` | `--all`, `-a` / `--help` |
 
 > Mặc định (không tham số) các script sẽ hiện menu tương tác để chọn thành phần muốn cài.
 > Chọn `q` để thoát — script sẽ exit 0, không làm đứt script cha.

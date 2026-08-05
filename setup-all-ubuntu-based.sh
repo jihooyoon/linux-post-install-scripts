@@ -3,7 +3,7 @@
 #  1. setup-basic-ubuntu-based.sh              — del-snap, flatpak, basic apps, lotus (luôn chạy)
 #  2. extras/install-ai-tools-deb.sh           — Claude Desktop + Claude Code CLI + Codex CLI
 #  3. extras/set-ime-shortcut.sh             — Phím tắt chuyển input method (GNOME: Alt+Space / KDE: Super+Space)
-#  4. extras/install-chat-apps.sh             — Slack, Mattermost, Discord
+#  4. extras/install-chat-apps-deb.sh         — Slack, Mattermost, Discord
 #  5. extras/install-basic-dev-works.sh        — Node.js LTS (NodeSource)
 # Chạy: sudo ./setup-all-ubuntu-based               (hiện menu chọn extras)
 #       sudo ./setup-all-ubuntu-based --all | -a    (cài tất cả, không hỏi)
@@ -66,7 +66,7 @@ extra_ime_shortcut() {
 }
 
 extra_chat_apps() {
-    run_step "Chat Apps (Slack, Mattermost, Discord)" extras/install-chat-apps.sh ${SILENT:+--all}
+    run_step "Chat Apps (Slack, Mattermost, Discord)" extras/install-chat-apps-deb.sh ${SILENT:+--all}
 }
 
 extra_dev_tools() {
@@ -160,6 +160,7 @@ else
         printf '\n\033[1;33mĐã thoát. Chỉ chạy chuỗi cơ bản, bỏ qua extras.\033[0m\n'
         exit 0
     fi
+    info "Đã nhận input: '$USER_CHOICE' → chọn mục: $SELECTED"
 fi
 
 # Chạy các extras đã chọn
@@ -169,6 +170,7 @@ for num in $SELECTED; do
         [ -z "$label" ] && continue
         if [ "$i" -eq "$num" ]; then
             printf '\n'
+            info "PROCESSING mục $num ($label) — hàm: $func"
             $func
             break
         fi

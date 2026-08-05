@@ -310,6 +310,7 @@ else
         printf '\n\033[1;33mĐã thoát. Các bước đã chạy: cập nhật gói + fcitx5 + purge ibus.\033[0m\n'
         exit 0
     fi
+    info "Đã nhận input: '$USER_CHOICE' → chọn mục: $SELECTED"
 fi
 
 # Chạy các mục đã chọn
@@ -323,6 +324,7 @@ for num in $SELECTED; do
             if [ "$FIRST" -eq 1 ]; then
                 FIRST=0
             fi
+            info "PROCESSING mục $num ($label) — hàm: $func"
             $func
             break
         fi
