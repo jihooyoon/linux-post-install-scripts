@@ -16,7 +16,7 @@ Scripts for configuring Linux distros after clean install
 - Tuxedo OS
 - Các distro nền Ubuntu/Debian khác (Linux Mint, Pop!_OS, Zorin...) cũng có thể chạy, nhưng chưa được test kĩ.
 
-# Cách chạy:
+# Cách sử dụng:
 
 ## Remote setup (recommended): một lệnh duy nhất (không cần clone tay): 
 
