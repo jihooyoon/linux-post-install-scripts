@@ -5,7 +5,7 @@ Scripts for configuring Linux distros after clean install
 ## Cơ chế scripts:
 
 **Những việc scripts sẽ làm:**
-- Debullshit: Mục tiêu gỡ hoàn toàn snap, tránh bloat
+- De-Bullshit Ubuntu: Mục tiêu gỡ hoàn toàn snap, tránh bloat
 - Bật flatpak
 - Cài lại các app cơ bản (browser, email client, chuyển libreoffice thành freeoffice,...)
 - Cài bộ gõ tiếng Việt dùng ổn nhất hiện tại (fcitx5-lotus)
