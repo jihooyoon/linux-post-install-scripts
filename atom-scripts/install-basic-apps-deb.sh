@@ -302,7 +302,9 @@ if [ "$ALL" -eq 1 ]; then
     info "Chế độ --all: cài tất cả"
 else
     show_menu
+    info "TRƯỚC READ: chờ nhập lựa chọn (từ /dev/tty)..."
     read -r USER_CHOICE </dev/tty
+    info "SAU READ: nhận được: '$USER_CHOICE'"
 
     SELECTED=$(parse_menu_choice "$USER_CHOICE")
 
