@@ -49,10 +49,9 @@ run_step() {
     file=$2
     extra_args=${3:-}
     info "=== Bắt đầu: $name ($file) ==="
-    # Chuyển stdin về tty trước khi gọi con: nếu chuỗi bị chạy qua pipe
-    # (vd: curl | sudo bash), stdin của con là EOF → menu sẽ không nhận được input.
-    exec </dev/tty 2>/dev/null || true
-    "$SCRIPT_DIR/$file" $extra_args || die "$file thất bại — dừng chuỗi"
+    # Gán stdin của con từ /dev/tty: nếu chuỗi bị chạy qua pipe (vd: curl | sudo bash),
+    # stdin của con là EOF → menu sẽ không nhận được input.
+    "$SCRIPT_DIR/$file" $extra_args </dev/tty || die "$file thất bại — dừng chuỗi"
     ok "Hoàn tất: $name"
 }
 
@@ -155,6 +154,17 @@ if [ "$ALL" -eq 1 ]; then
     fi
 else
     show_menu
+    # Debug: kiểm tra tty trước khi đọc
+    if [ -t 0 ]; then
+        info "TTY CHECK: stdin là terminal ($(tty 2>/dev/null))"
+    else
+        warn "TTY CHECK: stdin KHÔNG phải terminal (bị pipe/redirect)"
+    fi
+    if : </dev/tty 2>/dev/null; then
+        info "TTY CHECK: /dev/tty mở được (reachable)"
+    else
+        warn "TTY CHECK: /dev/tty KHÔNG mở được (không có controlling terminal)"
+    fi
     info "TRƯỚC READ: chờ nhập lựa chọn (từ /dev/tty)..."
     read -r USER_CHOICE </dev/tty
     info "SAU READ: nhận được: '$USER_CHOICE'"

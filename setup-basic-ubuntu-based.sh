@@ -48,10 +48,9 @@ run_step() {
     extra_args=${3:-}
     info "=== Bắt đầu: $name ($file) ==="
     # Không dùng sudo lồng nhau: master đã là root, gọi thẳng để giữ SUDO_USER
-    # Chuyển stdin về tty trước khi gọi con: nếu chuỗi bị chạy qua pipe
-    # (vd: curl | sudo bash), stdin của con là EOF → menu sẽ không nhận được input.
-    exec </dev/tty 2>/dev/null || true
-    "$SCRIPT_DIR/$file" $extra_args || die "$file thất bại — dừng chuỗi"
+    # Gán stdin của con từ /dev/tty: nếu chuỗi bị chạy qua pipe (vd: curl | sudo bash),
+    # stdin của con là EOF → menu sẽ không nhận được input.
+    "$SCRIPT_DIR/$file" $extra_args </dev/tty || die "$file thất bại — dừng chuỗi"
     ok "Hoàn tất: $name"
 }
 

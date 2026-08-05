@@ -302,6 +302,17 @@ if [ "$ALL" -eq 1 ]; then
     info "Chế độ --all: cài tất cả"
 else
     show_menu
+    # Debug: kiểm tra tty trước khi đọc
+    if [ -t 0 ]; then
+        info "TTY CHECK: stdin là terminal ($(tty 2>/dev/null))"
+    else
+        warn "TTY CHECK: stdin KHÔNG phải terminal (bị pipe/redirect)"
+    fi
+    if : </dev/tty 2>/dev/null; then
+        info "TTY CHECK: /dev/tty mở được (reachable)"
+    else
+        warn "TTY CHECK: /dev/tty KHÔNG mở được (không có controlling terminal)"
+    fi
     info "TRƯỚC READ: chờ nhập lựa chọn (từ /dev/tty)..."
     read -r USER_CHOICE </dev/tty
     info "SAU READ: nhận được: '$USER_CHOICE'"
