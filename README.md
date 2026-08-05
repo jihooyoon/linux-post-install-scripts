@@ -23,14 +23,29 @@ Scripts for configuring Linux distros after clean install
 Full setup:
 
 ```bash
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --silent
+```
+
+Basic setup:
+
+```bash
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --basic --silent
+```
+
+Setup with options:
+
+```bash
 command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh
 ```
 
-Chỉ setup phần basic (không cài extras):
+*Tham số `install-remote.sh`:*
 
-```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --basic
-```
+| Tham số | Mô tả |
+|---|---|
+| *(không)* | Chạy `setup-all-ubuntu-based.sh` với menu tương tác |
+| `--basic` | Chỉ chạy `setup-basic-ubuntu-based.sh` (bỏ qua extras) |
+| `--silent` | Không hiện menu, tự chọn tất cả (truyền xuống script con) |
+| `--help`, `-h` | In trợ giúp |
 
 *Cơ chế remote setup:*
 
@@ -41,6 +56,19 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 - Chạy file `setup-basic-ubuntu-based.sh` để setup những thành phần cơ bản cho Ubuntu-based distro
 - Chạy file `setup-all-ubuntu-based.sh` để setup những thành phần cơ bản kèm toàn bộ extras cho Ubuntu-based distro
 - Các scripts con cũng có thể chạy độc lập, tuy nhiên đa phần scripts phục vụ nhu cầu chạy độc lập sẽ nằm trong `extras`, các scripts trong `atom-scripts` gần như luôn cần
+
+**Các script chính đều hỗ trợ menu tương tác và tham số dòng lệnh:**
+
+| Script | Tham số hỗ trợ |
+|---|---|
+| `setup-all-ubuntu-based.sh` | `--all`, `-a` (cài tất cả) / `--silent` (không tương tác + truyền xuống con) / `--help` |
+| `setup-basic-ubuntu-based.sh` | `--silent` (truyền `--all` xuống script con) / `--help` |
+| `install-basic-apps-deb.sh` | `--all`, `-a` (cài tất cả app) / `--help` |
+| `install-ai-tools-deb.sh` | `--all`, `-a` / `--help` |
+| `install-chat-apps.sh` | `--all`, `-a` / `--help` |
+
+> Mặc định (không tham số) các script sẽ hiện menu tương tác để chọn thành phần muốn cài.
+> Chọn `q` để thoát — script sẽ exit 0, không làm đứt script cha.
  
 ### Additional: Nếu dùng GNOME (VD: Ubuntu)
 **Cài thêm các extension cần thiết từ GNOME Extension Manager:**

@@ -4,9 +4,11 @@
 # Cách dùng (một lệnh duy nhất trên máy cần cài):
 #   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo bash
 #   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo bash -s -- --basic
+#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo bash -s -- --basic --silent
 #
 # Tham số:
-#   --basic  chỉ chạy setup-basic-ubuntu-based.sh, không chạy setup-all
+#   --basic   chỉ chạy setup-basic-ubuntu-based.sh, không chạy setup-all
+#   --silent  không hiện menu tương tác, tự chọn tất cả (truyền xuống script con)
 #
 # Cách hoạt động:
 #   1. Tải tarball repo về /tmp (không cần clone tay, không cần git)
@@ -29,12 +31,23 @@ die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
 # Dọn file tạm khi kết thúc — kể cả khi script lỗi giữa chừng
 trap 'rm -rf "$TARBALL" "$DEST"' EXIT INT TERM
 
-# --- Đọc tham số: --basic → chỉ chạy setup-basic; mặc định setup-all ---
+# --- Đọc tham số: --basic → chỉ chạy setup-basic; --silent → không tương tác ---
 SETUP="setup-all-ubuntu-based.sh"
+SILENT=""
 for arg in "$@"; do
     case "$arg" in
-        --basic) SETUP="setup-basic-ubuntu-based.sh" ;;
-        *) die "Tham số không hợp lệ: $arg (chỉ hỗ trợ --basic)" ;;
+        --basic)  SETUP="setup-basic-ubuntu-based.sh" ;;
+        --silent) SILENT="--silent" ;;
+        --help|-h)
+            echo "Usage: curl -fsSL <url>/install-remote.sh | sudo bash"
+            echo "       curl -fsSL <url>/install-remote.sh | sudo bash -s -- [opts]"
+            echo ""
+            echo "  (không đối số)  Chạy setup-all-ubuntu-based.sh (tương tác)"
+            echo "  --basic         Chỉ chạy setup-basic-ubuntu-based.sh"
+            echo "  --silent        Không tương tác, truyền --silent xuống script con"
+            echo "  --help, -h      In trợ giúp này"
+            exit 0
+            ;;
     esac
 done
 
@@ -55,7 +68,7 @@ chmod +x "$DEST"/*.sh "$DEST"/atom-scripts/*.sh "$DEST"/extras/*.sh
 ok "Đã chmod +x toàn bộ script"
 
 # --- Bước 3: Chạy setup (root; SUDO_USER giữ nguyên vì không sudo lồng nhau) ---
-info "Chạy $SETUP..."
-"$DEST/$SETUP" || die "$SETUP thất bại — xem log phía trên"
+info "Chạy $SETUP${SILENT:+ (silent)}..."
+"$DEST/$SETUP" $SILENT || die "$SETUP thất bại — xem log phía trên"
 
 ok "Xong! File tạm trong /tmp đã được tự động xóa. Khởi động lại máy để áp dụng."
