@@ -18,9 +18,9 @@ Scripts for configuring Linux distros after clean install
 
 # Cách chạy:
 
-**Remote install (recommended): một lệnh duy nhất (không cần clone tay):** 
+**Remote setup (recommended): một lệnh duy nhất (không cần clone tay):** 
 
-Full install:
+Full setup:
 
 ```bash
 command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh
