@@ -42,7 +42,7 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 - Chạy file `setup-all-ubuntu-based.sh` để setup những thành phần cơ bản kèm toàn bộ extras cho Ubuntu-based distro
 - Các scripts con cũng có thể chạy độc lập, tuy nhiên đa phần scripts phục vụ nhu cầu chạy độc lập sẽ nằm trong `extras`, các scripts trong `atom-scripts` gần như luôn cần
  
-# Additional: Nếu dùng GNOME (VD: Ubuntu)
+## Additional: Nếu dùng GNOME (VD: Ubuntu)
 **Cài thêm các extension cần thiết từ GNOME Extension Manager:**
 - **KIMPanel (Hiển thị bộ gõ trên status bar)** - Highly recommend để bộ gõ tiếng Việt có trải nghiệm tốt:<br>
 <https://extensions.gnome.org/extension/261/kimpanel>
