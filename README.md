@@ -2,20 +2,21 @@
 
 Scripts for configuring Linux distros after clean install
 
-# Những việc bộ scripts này làm:
+# Cơ chế scripts:
 
+**Những việc scripts sẽ làm:**
 - Debullshit: Mục tiêu gỡ hoàn toàn snap, tránh bloat
 - Bật flatpak
 - Cài lại các app cơ bản (browser, email client, chuyển libreoffice thành freeoffice,...)
 - Cài bộ gõ tiếng Việt dùng ổn nhất hiện tại (fcitx5-lotus)
 - Setup các extras (chat apps, claude, shortcut chuyển bộ gõ (Alt + Space với Ubuntu/GNOME và Win + Space với các môi trường còn lại), nodejs,...)
 
-# Cách chạy:
-
 **Hiện tại mới chỉ support các distro Ubuntu-based:** 
 - Ubuntu và các flavors (VD Kubuntu)
 - Tuxedo OS
 - Các distro nền Ubuntu/Debian khác (Linux Mint, Pop!_OS, Zorin...) cũng có thể chạy, nhưng chưa được test kĩ.
+
+# Cách chạy:
 
 **Remote install (recommended): một lệnh duy nhất (không cần clone tay):** 
 
@@ -31,9 +32,9 @@ Chỉ setup phần basic (không cài extras):
 command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --basic
 ```
 
-*Cơ chế:*
+*Cơ chế remote install:*
 
-`install-remote.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh` (thêm `--basic` để chỉ chạy `setup-basic-ubuntu-based.sh`), rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
+> `install-remote.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh` (thêm `--basic` để chỉ chạy `setup-basic-ubuntu-based.sh`), rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
 
 **Manual install: Clone repo rồi chạy tay**
 - Cần chmod để cấp quyền run cho các file script
