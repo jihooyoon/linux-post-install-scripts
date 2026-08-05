@@ -18,17 +18,21 @@ Scripts for configuring Linux distros after clean install
 - Các distro nền Ubuntu/Debian khác (Linux Mint, Pop!_OS, Zorin...) cũng có thể chạy, nhưng chưa được test kĩ.
 
 **Remote install (recommended): một lệnh duy nhất (không cần clone tay):** 
+
 Full install:
+
 ```bash
 command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh
 ```
 
 Chỉ setup phần basic (không cài extras):
+
 ```bash
 command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --basic
 ```
 
 *Cơ chế:*
+
 `install-remote.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh` (thêm `--basic` để chỉ chạy `setup-basic-ubuntu-based.sh`), rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
 
 **Manual install: Clone repo rồi chạy tay**
