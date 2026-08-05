@@ -150,8 +150,8 @@ info "Bước 5: Cài Chromium..."
 HAS_CHROMIUM=0
 for pkg in chromium chromium-browser; do
     if apt-cache show "$pkg" >/dev/null 2>&1; then
-        # Bỏ qua nếu là snap transitional (Depends/PreDepends: snapd)
-        if ! apt-cache show "$pkg" 2>/dev/null | grep -qE '(PreDepends|Depends):.*snapd'; then
+        # Bỏ qua nếu là snap transitional (Depends/Pre-Depends: snapd)
+        if ! apt-cache show "$pkg" 2>/dev/null | grep -qE '(Pre-?)?Depends:.*snapd'; then
             HAS_CHROMIUM=1
             CHROMIUM_PKG="$pkg"
             break
