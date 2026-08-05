@@ -49,6 +49,9 @@ run_step() {
     file=$2
     extra_args=${3:-}
     info "=== Bắt đầu: $name ($file) ==="
+    # Chuyển stdin về tty trước khi gọi con: nếu chuỗi bị chạy qua pipe
+    # (vd: curl | sudo bash), stdin của con là EOF → menu sẽ không nhận được input.
+    exec </dev/tty 2>/dev/null || true
     "$SCRIPT_DIR/$file" $extra_args || die "$file thất bại — dừng chuỗi"
     ok "Hoàn tất: $name"
 }
@@ -152,8 +155,8 @@ if [ "$ALL" -eq 1 ]; then
     fi
 else
     show_menu
-    info "TRƯỚC READ: chờ nhập lựa chọn..."
-    read -r USER_CHOICE
+    info "TRƯỚC READ: chờ nhập lựa chọn (từ /dev/tty)..."
+    read -r USER_CHOICE </dev/tty
     info "SAU READ: nhận được: '$USER_CHOICE'"
 
     SELECTED=$(parse_menu_choice "$USER_CHOICE")
