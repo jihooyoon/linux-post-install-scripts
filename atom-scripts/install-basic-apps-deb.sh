@@ -138,7 +138,7 @@ ok "Đã cài FreeOffice 2024"
 info "Bước 4: Cài Google Chrome..."
 command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
 mkdir -p /etc/apt/keyrings
-curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --yes --dearmor -o /etc/apt/keyrings/google-chrome.gpg
 echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
     > /etc/apt/sources.list.d/google-chrome.list
 apt-get update
@@ -201,7 +201,7 @@ ok "Đã cài Chromium"
 
 # --- Bước 6: Cài Visual Studio Code (repo chính thức của Microsoft) ---
 info "Bước 6: Cài Visual Studio Code..."
-curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --yes --dearmor -o /etc/apt/keyrings/microsoft.gpg
 echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
     > /etc/apt/sources.list.d/vscode.list
 apt-get update

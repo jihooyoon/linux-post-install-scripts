@@ -27,7 +27,7 @@ mkdir -p /etc/apt/keyrings
 
 # --- Bước 3: Thêm khóa GPG và repo fcitx5-lotus ---
 info "Bước 3: Thêm khóa GPG và repo fcitx5-lotus..."
-curl -fsSL https://fcitx5-lotus.pages.dev/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/fcitx5-lotus.gpg
+curl -fsSL https://fcitx5-lotus.pages.dev/pubkey.gpg | gpg --yes --dearmor -o /etc/apt/keyrings/fcitx5-lotus.gpg
 echo "deb [signed-by=/etc/apt/keyrings/fcitx5-lotus.gpg] https://fcitx5-lotus.pages.dev/apt/$CODENAME $CODENAME main" \
     > /etc/apt/sources.list.d/fcitx5-lotus.list
 ok "Đã thêm repo fcitx5-lotus cho $CODENAME"

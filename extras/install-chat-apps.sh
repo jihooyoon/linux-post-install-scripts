@@ -26,7 +26,7 @@ command -v gpg  >/dev/null 2>&1 || apt-get install -y gpg
 info "Cài Slack..."
 mkdir -p /etc/apt/keyrings
 curl -fsSL https://packagecloud.io/slacktechnologies/slack/gpgkey \
-    | gpg --dearmor -o /etc/apt/keyrings/slack.gpg
+    | gpg --yes --dearmor -o /etc/apt/keyrings/slack.gpg
 echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/slack.gpg] https://packagecloud.io/slacktechnologies/slack/debian/ jessie main" \
     > /etc/apt/sources.list.d/slack.list
 apt-get update
