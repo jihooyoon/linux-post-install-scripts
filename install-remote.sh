@@ -69,6 +69,6 @@ ok "Đã chmod +x toàn bộ script"
 
 # --- Bước 3: Chạy setup (root; SUDO_USER giữ nguyên vì không sudo lồng nhau) ---
 info "Chạy $SETUP${SILENT:+ (silent)}..."
-"$DEST/$SETUP" $SILENT || die "$SETUP thất bại — xem log phía trên"
+"$DEST/$SETUP" $SILENT </dev/tty || die "$SETUP thất bại — xem log phía trên"
 
 ok "Xong! File tạm trong /tmp đã được tự động xóa. Khởi động lại máy để áp dụng."
