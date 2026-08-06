@@ -12,6 +12,25 @@ ok()   { printf '\033[1;32m[OK]\033[0m     %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m   %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m  %s\n' "$*" >&2; exit 1; }
 
+wait_apt() {
+    _i=0
+    while [ "$_i" -lt 60 ]; do
+        if ! fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/lib/dpkg/lock >/dev/null 2>&1; then
+            return 0
+        fi
+        if [ "$_i" -eq 0 ]; then
+            info "apt/dpkg đang bị lock — đợi giải phóng (tối đa 60s)..."
+        fi
+        sleep 1
+        _i=$((_i + 1))
+    done
+    warn "apt/dpkg vẫn bị lock sau 60s — thử kill process giữ lock..."
+    fuser -k /var/lib/dpkg/lock-frontend 2>/dev/null || true
+    fuser -k /var/lib/apt/lists/lock 2>/dev/null || true
+    fuser -k /var/lib/dpkg/lock 2>/dev/null || true
+    sleep 2
+}
+
 # --- Trợ giúp (không cần root) ---
 case "${1:-}" in
     --help|-h)
@@ -156,6 +175,7 @@ esac
 
 # --- Bước 1: Chuẩn bị curl + gpg (Desktop và CLI đều cần) ---
 info "Bước 1: Chuẩn bị curl và gpg..."
+wait_apt
 command -v curl >/dev/null 2>&1 || apt-get install -y curl
 command -v gpg  >/dev/null 2>&1 || apt-get install -y gnupg
 
