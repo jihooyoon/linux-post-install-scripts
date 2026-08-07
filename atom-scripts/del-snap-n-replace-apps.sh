@@ -37,6 +37,9 @@ wait_apt() {
 # --- Kiểm tra quyền root ---
 [ "$(id -u)" -eq 0 ] || die "Phải chạy với quyền root: sudo $0"
 
+# Sửa broken package state từ lần chạy trước (nếu có) — tránh cascade failure
+dpkg --configure -a 2>/dev/null || true
+
 # snap có thể chưa được cài — vẫn cho phép chạy các bước dọn dẹp còn lại
 if command -v snap >/dev/null 2>&1; then
     SNAP_PRESENT=1
@@ -91,6 +94,10 @@ fi
 info "Bước 4: Purge snapd..."
 wait_apt
 apt-get purge -y snapd
+
+# Sau purge snapd, sửa broken dependencies trước khi cài gì khác
+apt-get install -f -y 2>/dev/null || true
+dpkg --configure -a 2>/dev/null || true
 
 # --- Bước 5: Dọn các thư mục snap còn sót ---
 info "Bước 5: Dọn thư mục snap..."
