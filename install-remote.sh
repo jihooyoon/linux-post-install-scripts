@@ -35,7 +35,7 @@ ok()   { printf '\033[1;32m[OK]\033[0m      %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
 
 # Dọn file tạm khi kết thúc — kể cả khi script lỗi giữa chừng
-sudo trap 'rm -rf "$TARBALL" "$DEST"' EXIT INT TERM
+trap 'sudo rm -rf "$TARBALL" "$DEST"' EXIT INT TERM
 
 # --- Đọc tham số: --basic → chỉ chạy setup-basic; --silent → không tương tác ---
 SETUP="setup-all-ubuntu-based.sh"
