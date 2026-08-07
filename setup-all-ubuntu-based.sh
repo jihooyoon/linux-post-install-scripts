@@ -52,9 +52,14 @@ run_step() {
     file=$2
     extra_args=${3:-}
     info "=== Bắt đầu: $name ($file) ==="
-    # Gán stdin của con từ /dev/tty: nếu chuỗi bị chạy qua pipe (vd: curl | sudo bash),
-    # stdin của con là EOF → menu sẽ không nhận được input.
-    "$SCRIPT_DIR/$file" $extra_args </dev/tty || die "$file thất bại — dừng chuỗi"
+    # Gán stdin của con từ /dev/tty nếu có terminal thật — tránh trường hợp chạy qua
+    # pipe (vd: curl | sh): stdin của con là EOF → menu không nhận được input.
+    # Nếu không có /dev/tty (headless/CI, thường đi kèm --silent) thì để stdin nguyên.
+    if ( : </dev/tty ) 2>/dev/null; then
+        "$SCRIPT_DIR/$file" $extra_args </dev/tty || die "$file thất bại — dừng chuỗi"
+    else
+        "$SCRIPT_DIR/$file" $extra_args || die "$file thất bại — dừng chuỗi"
+    fi
     ok "Hoàn tất: $name"
 }
 
@@ -163,7 +168,7 @@ else
     else
         warn "TTY CHECK: stdin KHÔNG phải terminal (bị pipe/redirect)"
     fi
-    if : </dev/tty 2>/dev/null; then
+    if ( : </dev/tty ) 2>/dev/null; then
         info "TTY CHECK: /dev/tty mở được (reachable)"
     else
         warn "TTY CHECK: /dev/tty KHÔNG mở được (không có controlling terminal)"

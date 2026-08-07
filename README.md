@@ -23,20 +23,22 @@ Scripts for configuring Linux distros after clean install
 Full setup:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --silent
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sh -s -- --silent
 ```
 
 Basic setup:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --basic --silent
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sh -s -- --basic --silent
 ```
 
-Setup with options (đang bug chưa dùng được):
+Setup with options (menu tương tác):
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sh
 ```
+
+*Không cần `sudo` ở ngoài — `install-remote.sh` tự gọi `sudo` khi chạy phần cài đặt (chỉ hỏi mật khẩu sudo khi cần). Cách cũ (`curl ... | sudo sh`, `sudo sh install-remote.sh`) vẫn hoạt động.*
 
 *Tham số `install-remote.sh`:*
 
@@ -47,15 +49,15 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 | `--silent` | Không hiện menu, tự chọn tất cả (truyền xuống script con) |
 | `--help`, `-h` | In trợ giúp |
 
-*Debug mode:* Thêm `DEBUG=1` trước `sudo` để thấy tất cả lệnh đang chạy:
+*Debug mode:* Thêm `DEBUG=1` trước `sh` để thấy tất cả lệnh đang chạy:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo DEBUG=1 sh
+curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | DEBUG=1 sh
 ```
 
 *Cơ chế remote setup:*
 
-> `install-remote.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh` (thêm `--basic` để chỉ chạy `setup-basic-ubuntu-based.sh`), rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
+> `install-remote.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), rồi tự gọi `sudo` (nếu chưa root) để chạy `setup-all-ubuntu-based.sh` (thêm `--basic` để chỉ chạy `setup-basic-ubuntu-based.sh`), rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng. Khi chạy qua pipe (`curl | sh`), script tự gán stdin của các script con từ terminal thật (`/dev/tty`) để menu tương tác nhận được input.
 
 ### Manual setup: Clone repo rồi chạy tay:
 - Cần chmod để cấp quyền run cho các file script

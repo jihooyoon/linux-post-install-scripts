@@ -180,7 +180,7 @@ else
     else
         warn "TTY CHECK: stdin KHÔNG phải terminal (bị pipe/redirect)"
     fi
-    if : </dev/tty 2>/dev/null; then
+    if ( : </dev/tty ) 2>/dev/null; then
         info "TTY CHECK: /dev/tty mở được (reachable)"
     else
         warn "TTY CHECK: /dev/tty KHÔNG mở được (không có controlling terminal)"
