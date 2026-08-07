@@ -385,6 +385,7 @@ else
         warn "TTY CHECK: /dev/tty KHÔNG mở được (không có controlling terminal)"
     fi
     info "TRƯỚC READ: chờ nhập lựa chọn (từ /dev/tty)..."
+    trap 'echo "SIGTTIN"' TTIN
     read -r USER_CHOICE </dev/tty
     echo "status=$?"
     info "SAU READ: nhận được: '$USER_CHOICE'"
