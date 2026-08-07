@@ -50,7 +50,7 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 *Debug mode:* Thêm `DEBUG=1` trước `sudo` để thấy tất cả lệnh đang chạy:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo DEBUG=1 sh -s -- --silent
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo DEBUG=1 sh
 ```
 
 *Cơ chế remote setup:*
