@@ -35,7 +35,7 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 Setup with options (menu tương tác):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sh
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sh
 ```
 
 *Không cần `sudo` ở ngoài — `install-remote.sh` tự gọi `sudo` khi chạy phần cài đặt (chỉ hỏi mật khẩu sudo khi cần). Cách cũ (`curl ... | sudo sh`, `sudo sh install-remote.sh`) vẫn hoạt động.*
