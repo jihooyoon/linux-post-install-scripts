@@ -34,8 +34,21 @@ info() { printf '\033[1;36m[install]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m      %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
 
-# Dọn file tạm khi kết thúc — kể cả khi script lỗi giữa chừng
-trap 'sudo -rf "$TARBALL" "$DEST"' EXIT INT TERM
+# Dọn file tạm khi kết thúc — kể cả khi script lỗi giữa chừng.
+# Lưu ý: setup chạy bằng sudo (hoặc DEST còn sót từ lần chạy bằng root trước) có thể
+# để lại file root-owned trong DEST → rm bằng user bị "permission denied"; thử lại bằng sudo.
+# "$1" = "noprompt" → dùng sudo -n (không hỏi mật khẩu) — áp dụng cho trap EXIT/INT/TERM
+# để tránh prompt bất ngờ; lời gọi cleanup() ở đầu script (dọn DEST cũ) vẫn được phép hỏi.
+cleanup() {
+    _sudo_opt=""
+    [ "${1:-}" = "noprompt" ] && _sudo_opt="-n"
+    rm -rf "$TARBALL" "$DEST" 2>/dev/null \
+        || { command -v sudo >/dev/null 2>&1 && sudo $_sudo_opt rm -rf "$TARBALL" "$DEST" 2>/dev/null; } \
+        || true
+}
+trap 'cleanup noprompt' EXIT
+trap 'cleanup noprompt; exit 130' INT
+trap 'cleanup noprompt; exit 143' TERM
 
 # --- Đọc tham số: --basic → chỉ chạy setup-basic; --silent → không tương tác ---
 SETUP="setup-all-ubuntu-based.sh"
@@ -65,6 +78,9 @@ command -v curl >/dev/null 2>&1 || die "Thiếu curl — cài trước: sudo apt
 if [ "$(id -u)" -ne 0 ] && ! command -v sudo >/dev/null 2>&1; then
     die "Thiếu sudo — chạy bằng root hoặc cài sudo trước"
 fi
+
+# --- Bước 0: Dọn DEST/TARBALL cũ còn sót (có thể chứa file root-owned từ lần chạy bằng root trước) ---
+cleanup
 
 # --- Bước 1: Tải repo về /tmp (chạy được cả khi chưa root) ---
 info "Tải repo về /tmp (bản $BRANCH)..."
