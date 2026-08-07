@@ -19,6 +19,9 @@
 
 set -e
 
+# Debug mode: chạy với DEBUG=1 để thấy tất cả lệnh đang chạy
+[ "${DEBUG:-0}" = "1" ] && set -x
+
 REPO="jihooyoon/linux-post-install-scripts"
 BRANCH="main"
 TARBALL="/tmp/linux-post-install-scripts.tar.gz"

@@ -12,6 +12,9 @@
 
 set -e
 
+# Debug mode: chạy với DEBUG=1 ./script.sh để thấy tất cả lệnh đang chạy
+[ "${DEBUG:-0}" = "1" ] && set -x
+
 info() { printf '\033[1;36m[setup]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m     %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m   %s\n' "$*"; }

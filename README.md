@@ -47,6 +47,12 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 | `--silent` | Không hiện menu, tự chọn tất cả (truyền xuống script con) |
 | `--help`, `-h` | In trợ giúp |
 
+*Debug mode:* Thêm `DEBUG=1` trước `sudo` để thấy tất cả lệnh đang chạy:
+
+```bash
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo DEBUG=1 sh -s -- --silent
+```
+
 *Cơ chế remote setup:*
 
 > `install-remote.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), chạy `setup-all-ubuntu-based.sh` (thêm `--basic` để chỉ chạy `setup-basic-ubuntu-based.sh`), rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng.
