@@ -151,7 +151,55 @@ EOF
 # --- Mục 4: Cài Visual Studio Code ---
 install_vscode() {
     info "Cài Visual Studio Code..."
-    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --yes --dearmor -o /etc/apt/keyrings/microsoft.gpg
+    command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
+
+    mkdir -p /etc/apt/keyrings
+    # Tải key chuẩn TRƯỚC khi dọn dẹp — nếu lỗi mạng thì không phá cấu hình nguồn cũ
+    # Ghi key vào file tạm rồi mv để không để lại key cụt nếu gpg bị lỗi giữa chừng
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --yes --dearmor -o /etc/apt/keyrings/microsoft.gpg.tmp
+    mv -f /etc/apt/keyrings/microsoft.gpg.tmp /etc/apt/keyrings/microsoft.gpg
+
+    # Gỡ mọi entry nguồn cũ trỏ tới repo VS Code. Lý do: máy đã cài VS Code qua cách khác
+    # (vd: file deb822 vscode.sources dùng Signed-By /usr/share/keyrings/microsoft.gpg) sẽ khiến
+    # 2 entry cùng 1 repo với Signed-By khác nhau → lỗi "Conflicting values set for option Signed-By".
+    if [ -d /etc/apt/sources.list.d ]; then
+        for _f in /etc/apt/sources.list.d/*; do
+            [ -f "$_f" ] || continue
+            grep -qE 'https?://packages\.microsoft\.com/repos/(code|vscode)' "$_f" 2>/dev/null || continue
+            case "$_f" in
+                *.sources)
+                    # deb822: xoá cả file nếu nó chỉ khai báo 1 repo; nếu có nhiều stanza
+                    # (chứa repo khác) thì chỉ bỏ dòng URIs trỏ tới VS Code
+                    if [ "$(grep -cE '^URIs:' "$_f" 2>/dev/null || true)" -le 1 ]; then
+                        rm -f "$_f"
+                    else
+                        grep -vE 'https?://packages\.microsoft\.com/repos/(code|vscode)' "$_f" >"$_f.tmp" || true
+                        mv -f "$_f.tmp" "$_f"
+                    fi
+                    ;;
+                *.list)
+                    # one-line format: chỉ bỏ dòng chứa repo, giữ nguyên các dòng khác.
+                    # Lưu ý: grep -v thoát 1 khi không còn dòng nào → phải luôn mv, rồi xoá file rỗng
+                    grep -vE 'https?://packages\.microsoft\.com/repos/(code|vscode)' "$_f" >"$_f.tmp" || true
+                    mv -f "$_f.tmp" "$_f"
+                    [ -s "$_f" ] || rm -f "$_f"
+                    ;;
+            esac
+        done
+    fi
+    # Đề phòng entry nằm thẳng trong /etc/apt/sources.list
+    if [ -f /etc/apt/sources.list ]; then
+        grep -vE 'https?://packages\.microsoft\.com/repos/(code|vscode)' /etc/apt/sources.list >/etc/apt/sources.list.tmp || true
+        mv -f /etc/apt/sources.list.tmp /etc/apt/sources.list
+        rm -f /etc/apt/sources.list.tmp
+    fi
+
+    # Bỏ key cũ ở vị trí khác — chỉ khi không còn nguồn nào khác tham chiếu tới nó
+    # (vd: azure-cli, mssql-server cũng dùng key microsoft.asc, không được xoá nhầm)
+    if ! grep -rsl 'usr/share/keyrings/microsoft\.gpg' /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null | grep -q .; then
+        rm -f /usr/share/keyrings/microsoft.gpg
+    fi
+
     echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
         > /etc/apt/sources.list.d/vscode.list
     apt-get update
@@ -338,6 +386,7 @@ else
     fi
     info "TRƯỚC READ: chờ nhập lựa chọn (từ /dev/tty)..."
     read -r USER_CHOICE </dev/tty
+    echo "status=$?"
     info "SAU READ: nhận được: '$USER_CHOICE'"
 
     SELECTED=$(parse_menu_choice "$USER_CHOICE")
