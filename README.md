@@ -32,7 +32,7 @@ Basic setup:
 command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh -s -- --basic --silent
 ```
 
-Setup with options (tương tác — chọn qua menu):
+Setup with options (đang bug chưa dùng được):
 
 ```bash
 command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sudo sh
