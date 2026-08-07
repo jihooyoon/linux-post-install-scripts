@@ -83,6 +83,8 @@ if [ "$SNAP_PRESENT" -eq 1 ]; then
     systemctl stop snapd.service snapd.socket snapd.seeded.service 2>/dev/null || true
     systemctl disable snapd.service snapd.socket snapd.seeded.service 2>/dev/null || true
     systemctl mask snapd.service snapd.socket snapd.seeded.service 2>/dev/null || true
+    # Kill cứng: snapd có Restart=always, stop xong vẫn có thể restart trước khi mask kịp áp dụng
+    systemctl kill snapd.service snapd.socket 2>/dev/null || true
 fi
 
 # --- Bước 4: Purge snapd qua apt ---
