@@ -162,20 +162,7 @@ if [ "$ALL" -eq 1 ]; then
     fi
 else
     show_menu
-    # Debug: kiểm tra tty trước khi đọc
-    if [ -t 0 ]; then
-        info "TTY CHECK: stdin là terminal ($(tty 2>/dev/null))"
-    else
-        warn "TTY CHECK: stdin KHÔNG phải terminal (bị pipe/redirect)"
-    fi
-    if ( : </dev/tty ) 2>/dev/null; then
-        info "TTY CHECK: /dev/tty mở được (reachable)"
-    else
-        warn "TTY CHECK: /dev/tty KHÔNG mở được (không có controlling terminal)"
-    fi
-    info "TRƯỚC READ: chờ nhập lựa chọn (từ /dev/tty)..."
     read -r USER_CHOICE </dev/tty
-    info "SAU READ: nhận được: '$USER_CHOICE'"
 
     SELECTED=$(parse_menu_choice "$USER_CHOICE")
 
@@ -183,7 +170,6 @@ else
         printf '\n\033[1;33mĐã thoát. Chỉ chạy chuỗi cơ bản, bỏ qua extras.\033[0m\n'
         exit 0
     fi
-    info "Đã nhận input: '$USER_CHOICE' → chọn mục: $SELECTED"
 fi
 
 # Chạy các extras đã chọn
