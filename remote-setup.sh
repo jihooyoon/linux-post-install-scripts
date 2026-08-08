@@ -1,16 +1,18 @@
 #!/bin/sh
-# install-remote.sh — Cài từ GitHub trên máy mới, tự dọn dẹp
+# remote-setup.sh — Cài từ GitHub trên máy mới, tự dọn dẹp
 #
 # Cách dùng (một lệnh duy nhất trên máy cần cài) — KHÔNG cần sudo ở ngoài,
 # script tự gọi sudo khi cần chạy phần cài đặt:
-#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sh
-#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sh -s -- --basic
-#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/install-remote.sh | sh -s -- --basic --silent
+#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic
+#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic --silent
+#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --dev
 #
-# (Cách cũ vẫn hoạt động: curl ... | sudo sh, hoặc sudo sh install-remote.sh)
+# (Cách cũ vẫn hoạt động: curl ... | sudo sh, hoặc sudo sh remote-setup.sh)
 #
 # Tham số:
 #   --basic   chỉ chạy setup-basic-ubuntu-based.sh, không chạy setup-all
+#   --dev     tải và chạy source từ nhánh dev thay vì main
 #   --silent  không hiện menu tương tác, tự chọn tất cả (truyền xuống script con)
 #
 # Cách hoạt động:
@@ -28,7 +30,6 @@ set -e
 REPO="jihooyoon/linux-post-install-scripts"
 BRANCH="main"
 TARBALL="/tmp/linux-post-install-scripts.tar.gz"
-DEST="/tmp/linux-post-install-scripts-$BRANCH"
 
 info() { printf '\033[1;36m[install]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m      %s\n' "$*"; }
@@ -50,19 +51,21 @@ trap 'cleanup noprompt' EXIT
 trap 'cleanup noprompt; exit 130' INT
 trap 'cleanup noprompt; exit 143' TERM
 
-# --- Đọc tham số: --basic → chỉ chạy setup-basic; --silent → không tương tác ---
+# --- Đọc tham số: --basic → chỉ chạy setup-basic; --dev → tải nhánh dev; --silent → không tương tác ---
 SETUP="setup-all-ubuntu-based.sh"
 SILENT=""
 for arg in "$@"; do
     case "$arg" in
         --basic)  SETUP="setup-basic-ubuntu-based.sh" ;;
+        --dev)    BRANCH="dev" ;;
         --silent) SILENT="--silent" ;;
         --help|-h)
-            echo "Usage: curl -fsSL <url>/install-remote.sh | sh"
-            echo "       curl -fsSL <url>/install-remote.sh | sh -s -- [opts]"
+            echo "Usage: curl -fsSL <url>/remote-setup.sh | sh"
+            echo "       curl -fsSL <url>/remote-setup.sh | sh -s -- [opts]"
             echo ""
             echo "  (không đối số)  Chạy setup-all-ubuntu-based.sh (tương tác)"
             echo "  --basic         Chỉ chạy setup-basic-ubuntu-based.sh"
+            echo "  --dev           Tải và chạy source từ nhánh dev thay vì main"
             echo "  --silent        Không tương tác, truyền --silent xuống script con"
             echo "  --help, -h      In trợ giúp này"
             echo ""
@@ -72,6 +75,8 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+DEST="/tmp/linux-post-install-scripts-$BRANCH"
 
 # --- Kiểm tra công cụ: curl để tải; sudo để chạy phần cài đặt nếu chưa root ---
 command -v curl >/dev/null 2>&1 || die "Thiếu curl — cài trước: sudo apt-get install -y curl"
