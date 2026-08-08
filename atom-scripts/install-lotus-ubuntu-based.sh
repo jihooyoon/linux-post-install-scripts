@@ -50,10 +50,16 @@ mkdir -p /etc/apt/keyrings
 
 # --- Bước 3: Thêm khóa GPG và repo fcitx5-lotus ---
 info "Bước 3: Thêm khóa GPG và repo fcitx5-lotus..."
-curl -fsSL https://fcitx5-lotus.pages.dev/pubkey.gpg | gpg --yes --dearmor -o /etc/apt/keyrings/fcitx5-lotus.gpg
-echo "deb [signed-by=/etc/apt/keyrings/fcitx5-lotus.gpg] https://fcitx5-lotus.pages.dev/apt/$CODENAME $CODENAME main" \
-    > /etc/apt/sources.list.d/fcitx5-lotus.list
-ok "Đã thêm repo fcitx5-lotus cho $CODENAME"
+LOTUS_REPO_PATTERN="https?://fcitx5-lotus\\.pages\\.dev/apt/${CODENAME}/?([[:space:]]|$)"
+LOTUS_REPO_FILES=$(grep -rslE "$LOTUS_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
+if [ -n "$LOTUS_REPO_FILES" ]; then
+    warn "Đã có source fcitx5-lotus; giữ nguyên và không thêm source mới: $(printf '%s' "$LOTUS_REPO_FILES" | tr '\n' ' ')"
+else
+    curl -fsSL https://fcitx5-lotus.pages.dev/pubkey.gpg | gpg --yes --dearmor -o /etc/apt/keyrings/fcitx5-lotus.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/fcitx5-lotus.gpg] https://fcitx5-lotus.pages.dev/apt/$CODENAME $CODENAME main" \
+        > /etc/apt/sources.list.d/fcitx5-lotus.list
+    ok "Đã thêm repo fcitx5-lotus cho $CODENAME"
+fi
 
 # --- Bước 4: Cài fcitx5-lotus ---
 info "Bước 4: Cập nhật và cài fcitx5-lotus..."
