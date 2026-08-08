@@ -82,11 +82,17 @@ install_freeoffice() {
 # --- Mục 2: Cài Google Chrome ---
 install_chrome() {
     info "Cài Google Chrome..."
-    command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
-    mkdir -p /etc/apt/keyrings
-    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --yes --dearmor -o /etc/apt/keyrings/google-chrome.gpg
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-        > /etc/apt/sources.list.d/google-chrome.list
+    CHROME_REPO_PATTERN='https?://dl\.google\.com/linux/chrome/deb/?([[:space:]]|$)'
+    CHROME_REPO_FILES=$(grep -rslE "$CHROME_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
+    if [ -n "$CHROME_REPO_FILES" ]; then
+        warn "Đã có source Google Chrome; giữ nguyên và không thêm source mới: $(printf '%s' "$CHROME_REPO_FILES" | tr '\n' ' ')"
+    else
+        command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
+        mkdir -p /etc/apt/keyrings
+        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --yes --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+            > /etc/apt/sources.list.d/google-chrome.list
+    fi
     apt-get update
     apt-get install -y google-chrome-stable
     ok "Đã cài Google Chrome"
@@ -120,20 +126,25 @@ install_chromium() {
             noble)  MINT_SUITE="wilma"     ;;  # 24.04 → Mint 22.x
             *)      MINT_SUITE="zena"      ;;  # 26.04+ → Mint 23
         esac
-        # Cài linuxmint-keyring
-        MINT_KEYRING_URL="http://packages.linuxmint.com/pool/main/l/linuxmint-keyring"
-        KEYRING_DEB=$(curl -fsSL "$MINT_KEYRING_URL/" 2>/dev/null | \
-            grep -oP 'linuxmint-keyring_[^"]+_all\.deb' | sort -V | tail -1)
-        [ -n "$KEYRING_DEB" ] || die "Không tìm thấy linuxmint-keyring — kiểm tra kết nối mạng"
-        TMP_DEB=$(mktemp /tmp/linuxmint-keyring.XXXXXX.deb)
-        curl -fsSL "$MINT_KEYRING_URL/$KEYRING_DEB" -o "$TMP_DEB"
-        dpkg -i "$TMP_DEB"
-        rm -f "$TMP_DEB"
-        mkdir -p /etc/apt/keyrings
-        [ -f /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg ] && \
-            mv /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg /etc/apt/keyrings/
-        # Thêm repo Mint (Include: chromium — apt 26.04+ chỉ lấy chromium)
-        cat > /etc/apt/sources.list.d/linuxmint.sources <<EOF
+        MINT_REPO_PATTERN='https?://packages\.linuxmint\.com/?([[:space:]]|$)'
+        MINT_REPO_FILES=$(grep -rslE "$MINT_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
+        if [ -n "$MINT_REPO_FILES" ]; then
+            warn "Đã có source Linux Mint; giữ nguyên và không thêm source mới: $(printf '%s' "$MINT_REPO_FILES" | tr '\n' ' ')"
+        else
+            # Cài linuxmint-keyring
+            MINT_KEYRING_URL="http://packages.linuxmint.com/pool/main/l/linuxmint-keyring"
+            KEYRING_DEB=$(curl -fsSL "$MINT_KEYRING_URL/" 2>/dev/null | \
+                grep -oP 'linuxmint-keyring_[^"]+_all\.deb' | sort -V | tail -1)
+            [ -n "$KEYRING_DEB" ] || die "Không tìm thấy linuxmint-keyring — kiểm tra kết nối mạng"
+            TMP_DEB=$(mktemp /tmp/linuxmint-keyring.XXXXXX.deb)
+            curl -fsSL "$MINT_KEYRING_URL/$KEYRING_DEB" -o "$TMP_DEB"
+            dpkg -i "$TMP_DEB"
+            rm -f "$TMP_DEB"
+            mkdir -p /etc/apt/keyrings
+            [ -f /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg ] && \
+                mv /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg /etc/apt/keyrings/
+            # Thêm repo Mint (Include: chromium — apt 26.04+ chỉ lấy chromium)
+            cat > /etc/apt/sources.list.d/linuxmint.sources <<EOF
 # Linux Mint repo — chỉ lấy chromium, không ảnh hưởng gì đến hệ thống
 Types: deb
 URIs: http://packages.linuxmint.com
@@ -142,6 +153,7 @@ Components: upstream
 Include: chromium
 Signed-By: /etc/apt/keyrings/linuxmint-keyring.gpg
 EOF
+        fi
         apt-get update
         apt-get install -y chromium
     fi
@@ -151,57 +163,27 @@ EOF
 # --- Mục 4: Cài Visual Studio Code ---
 install_vscode() {
     info "Cài Visual Studio Code..."
-    command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
+    # /repos/code là source APT chính thức hiện tại. /repos/vscode là source legacy
+    # khác endpoint, nên chỉ cảnh báo riêng thay vì coi là source trùng gây conflict.
+    VSCODE_CODE_REPO_PATTERN='https?://packages\.microsoft\.com/repos/code/?([[:space:]]|$)'
+    VSCODE_LEGACY_REPO_PATTERN='https?://packages\.microsoft\.com/repos/vscode/?([[:space:]]|$)'
+    VSCODE_CODE_REPO_FILES=$(grep -rslE "$VSCODE_CODE_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
+    VSCODE_LEGACY_REPO_FILES=$(grep -rslE "$VSCODE_LEGACY_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
+    if [ -n "$VSCODE_CODE_REPO_FILES" ]; then
+        warn "Đã có source VS Code chính thức (/repos/code); giữ nguyên và không thêm source mới: $(printf '%s' "$VSCODE_CODE_REPO_FILES" | tr '\n' ' ')"
+    elif [ -n "$VSCODE_LEGACY_REPO_FILES" ]; then
+        warn "Đã có source VS Code legacy (/repos/vscode); giữ nguyên và không thêm source /repos/code: $(printf '%s' "$VSCODE_LEGACY_REPO_FILES" | tr '\n' ' ')"
+    else
+        command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
+        mkdir -p /etc/apt/keyrings
+        # Ghi key vào file tạm rồi mv để không để lại key cụt nếu gpg bị lỗi giữa chừng.
+        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --yes --dearmor -o /etc/apt/keyrings/microsoft.gpg.tmp
+        mv -f /etc/apt/keyrings/microsoft.gpg.tmp /etc/apt/keyrings/microsoft.gpg
 
-    mkdir -p /etc/apt/keyrings
-    # Tải key chuẩn TRƯỚC khi dọn dẹp — nếu lỗi mạng thì không phá cấu hình nguồn cũ
-    # Ghi key vào file tạm rồi mv để không để lại key cụt nếu gpg bị lỗi giữa chừng
-    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --yes --dearmor -o /etc/apt/keyrings/microsoft.gpg.tmp
-    mv -f /etc/apt/keyrings/microsoft.gpg.tmp /etc/apt/keyrings/microsoft.gpg
-
-    # Gỡ mọi entry nguồn cũ trỏ tới repo VS Code. Lý do: máy đã cài VS Code qua cách khác
-    # (vd: file deb822 vscode.sources dùng Signed-By /usr/share/keyrings/microsoft.gpg) sẽ khiến
-    # 2 entry cùng 1 repo với Signed-By khác nhau → lỗi "Conflicting values set for option Signed-By".
-    if [ -d /etc/apt/sources.list.d ]; then
-        for _f in /etc/apt/sources.list.d/*; do
-            [ -f "$_f" ] || continue
-            grep -qE 'https?://packages\.microsoft\.com/repos/(code|vscode)' "$_f" 2>/dev/null || continue
-            case "$_f" in
-                *.sources)
-                    # deb822: xoá cả file nếu nó chỉ khai báo 1 repo; nếu có nhiều stanza
-                    # (chứa repo khác) thì chỉ bỏ dòng URIs trỏ tới VS Code
-                    if [ "$(grep -cE '^URIs:' "$_f" 2>/dev/null || true)" -le 1 ]; then
-                        rm -f "$_f"
-                    else
-                        grep -vE 'https?://packages\.microsoft\.com/repos/(code|vscode)' "$_f" >"$_f.tmp" || true
-                        mv -f "$_f.tmp" "$_f"
-                    fi
-                    ;;
-                *.list)
-                    # one-line format: chỉ bỏ dòng chứa repo, giữ nguyên các dòng khác.
-                    # Lưu ý: grep -v thoát 1 khi không còn dòng nào → phải luôn mv, rồi xoá file rỗng
-                    grep -vE 'https?://packages\.microsoft\.com/repos/(code|vscode)' "$_f" >"$_f.tmp" || true
-                    mv -f "$_f.tmp" "$_f"
-                    [ -s "$_f" ] || rm -f "$_f"
-                    ;;
-            esac
-        done
-    fi
-    # Đề phòng entry nằm thẳng trong /etc/apt/sources.list
-    if [ -f /etc/apt/sources.list ]; then
-        grep -vE 'https?://packages\.microsoft\.com/repos/(code|vscode)' /etc/apt/sources.list >/etc/apt/sources.list.tmp || true
-        mv -f /etc/apt/sources.list.tmp /etc/apt/sources.list
-        rm -f /etc/apt/sources.list.tmp
+        echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+            > /etc/apt/sources.list.d/vscode.list
     fi
 
-    # Bỏ key cũ ở vị trí khác — chỉ khi không còn nguồn nào khác tham chiếu tới nó
-    # (vd: azure-cli, mssql-server cũng dùng key microsoft.asc, không được xoá nhầm)
-    if ! grep -rsl 'usr/share/keyrings/microsoft\.gpg' /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null | grep -q .; then
-        rm -f /usr/share/keyrings/microsoft.gpg
-    fi
-
-    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
-        > /etc/apt/sources.list.d/vscode.list
     apt-get update
     apt-get install -y code
     ok "Đã cài Visual Studio Code"

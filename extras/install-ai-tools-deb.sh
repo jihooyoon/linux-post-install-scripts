@@ -61,18 +61,24 @@ esac
 # --- Mục 1: Claude Desktop ---
 install_claude_desktop() {
     info "Thêm apt repository của Claude Desktop..."
-    curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc \
-        https://downloads.claude.ai/claude-desktop/key.asc
+    CLAUDE_DESKTOP_REPO_PATTERN='https?://downloads\.claude\.ai/claude-desktop/apt/stable/?([[:space:]]|$)'
+    CLAUDE_DESKTOP_REPO_FILES=$(grep -rslE "$CLAUDE_DESKTOP_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
+    if [ -n "$CLAUDE_DESKTOP_REPO_FILES" ]; then
+        warn "Đã có source Claude Desktop; giữ nguyên và không thêm source mới: $(printf '%s' "$CLAUDE_DESKTOP_REPO_FILES" | tr '\n' ' ')"
+    else
+        curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+            https://downloads.claude.ai/claude-desktop/key.asc
 
-    # Xác minh vân tay khóa theo guide (tránh khóa giả mạo)
-    FPR=$(gpg --show-keys --with-colons /usr/share/keyrings/claude-desktop-archive-keyring.asc 2>/dev/null \
-          | awk -F: '$1=="fpr"{print $10; exit}')
-    [ "$FPR" = "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ] \
-        || die "Khóa tải về không khớp vân tay Anthropic (nhận: $FPR) — kiểm tra kết nối downloads.claude.ai"
-    ok "Đã xác minh khóa Anthropic"
+        # Xác minh vân tay khóa theo guide (tránh khóa giả mạo)
+        FPR=$(gpg --show-keys --with-colons /usr/share/keyrings/claude-desktop-archive-keyring.asc 2>/dev/null \
+              | awk -F: '$1=="fpr"{print $10; exit}')
+        [ "$FPR" = "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ] \
+            || die "Khóa tải về không khớp vân tay Anthropic (nhận: $FPR) — kiểm tra kết nối downloads.claude.ai"
+        ok "Đã xác minh khóa Anthropic"
 
-    echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
-        > /etc/apt/sources.list.d/claude-desktop.list
+        echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
+            > /etc/apt/sources.list.d/claude-desktop.list
+    fi
 
     info "Cài Claude Desktop..."
     apt-get update

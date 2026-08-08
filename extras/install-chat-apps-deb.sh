@@ -60,11 +60,17 @@ esac
 # --- Mục 1: Slack ---
 install_slack() {
     info "Cài Slack..."
-    mkdir -p /etc/apt/keyrings
-    curl -fsSL https://packagecloud.io/slacktechnologies/slack/gpgkey \
-        | gpg --yes --dearmor -o /etc/apt/keyrings/slack.gpg
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/slack.gpg] https://packagecloud.io/slacktechnologies/slack/debian/ jessie main" \
-        > /etc/apt/sources.list.d/slack.list
+    SLACK_REPO_PATTERN='https?://packagecloud\.io/slacktechnologies/slack/debian/?([[:space:]]|$)'
+    SLACK_REPO_FILES=$(grep -rslE "$SLACK_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
+    if [ -n "$SLACK_REPO_FILES" ]; then
+        warn "Đã có source Slack; giữ nguyên và không thêm source mới: $(printf '%s' "$SLACK_REPO_FILES" | tr '\n' ' ')"
+    else
+        mkdir -p /etc/apt/keyrings
+        curl -fsSL https://packagecloud.io/slacktechnologies/slack/gpgkey \
+            | gpg --yes --dearmor -o /etc/apt/keyrings/slack.gpg
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/slack.gpg] https://packagecloud.io/slacktechnologies/slack/debian/ jessie main" \
+            > /etc/apt/sources.list.d/slack.list
+    fi
     apt-get update
     apt-get install -y slack-desktop
     ok "Đã cài Slack"
