@@ -4,17 +4,14 @@
 # Cách dùng (một lệnh duy nhất trên máy cần cài) — KHÔNG cần sudo ở ngoài,
 # script tự gọi sudo khi cần chạy phần cài đặt:
 #   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh
-#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic
-#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic --silent
+#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --all
+#   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --pack-bs
 #   curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --dev
 #
 # (Cách cũ vẫn hoạt động: curl ... | sudo sh, hoặc sudo sh remote-setup.sh)
 #
-# Tham số:
-#   --basic   chỉ chạy atom scripts, không chạy extras
-#   --dev     tải và chạy source từ nhánh dev thay vì main
-#   --all     không hiện menu tương tác, tự chọn tất cả
-#   --silent  như --all và truyền --all xuống script con
+# Tham số được passthrough sang setup-ubuntu-based.sh. Riêng --dev chỉ chọn
+# source branch cho remote, sau đó không được forward xuống parent.
 #
 # Cách hoạt động:
 #   1. Tải tarball repo về /tmp (không cần clone tay, không cần git, không cần root)
@@ -51,43 +48,15 @@ trap 'cleanup noprompt' EXIT
 trap 'cleanup noprompt; exit 130' INT
 trap 'cleanup noprompt; exit 143' TERM
 
-# --- Đọc tham số remote và gom cờ truyền xuống entrypoint thống nhất ---
+# --- Chỉ tách --dev để chọn branch; các argument khác passthrough nguyên vẹn ---
 SETUP="setup-ubuntu-based.sh"
-BASIC=0
-ALL=0
-SILENT=0
-SHOW_HELP=0
+SETUP_ARGS=""
 for arg in "$@"; do
     case "$arg" in
-        --basic)  BASIC=1 ;;
-        --dev)    BRANCH="dev" ;;
-        --all|-a) ALL=1 ;;
-        --silent) SILENT=1 ;;
-        --help|-h) SHOW_HELP=1 ;;
-        *) die "Không rõ tuỳ chọn: $arg" ;;
+        --dev) BRANCH="dev" ;;
+        *) SETUP_ARGS="${SETUP_ARGS}${SETUP_ARGS:+ }$arg" ;;
     esac
 done
-
-if [ "$SHOW_HELP" -eq 1 ]; then
-    echo "Usage: curl -fsSL <url>/remote-setup.sh | sh"
-    echo "       curl -fsSL <url>/remote-setup.sh | sh -s -- [opts]"
-    echo ""
-    echo "  (không đối số)  Chạy setup-ubuntu-based.sh với menu động"
-    echo "  --basic         Chỉ chạy atom scripts, bỏ qua extras"
-    echo "  --dev           Tải và chạy source từ nhánh dev thay vì main"
-    echo "  --all, -a       Không tương tác, chọn toàn bộ"
-    echo "  --silent        Như --all và truyền --all xuống script con"
-    echo "  --help, -h      In trợ giúp này"
-    echo ""
-    echo "  Không cần sudo ở ngoài — script tự gọi sudo khi chạy phần cài đặt."
-    echo "  Cách cũ (curl ... | sudo sh) vẫn hoạt động."
-    exit 0
-fi
-
-SETUP_ARGS=""
-[ "$BASIC" -eq 0 ] || SETUP_ARGS="$SETUP_ARGS --basic"
-[ "$ALL" -eq 0 ] || SETUP_ARGS="$SETUP_ARGS --all"
-[ "$SILENT" -eq 0 ] || SETUP_ARGS="$SETUP_ARGS --silent"
 
 DEST="/tmp/linux-post-install-scripts-$BRANCH"
 

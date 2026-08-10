@@ -75,11 +75,12 @@ Parent chỉ scan `<số>-*.sh`, lọc `when` theo `/etc/os-release` trước kh
 
 - Không cờ: menu tương tác.
 - `--all`: chọn toàn bộ atom items và extras, không hiện menu.
-- `--silent`: như `--all` và truyền `--all` xuống mọi child trong execution plan.
-- `--basic`: loại extras khỏi menu và execution; kết hợp được với `--all` hoặc `--silent`.
+- `--pack-ms`: chọn OnlyOffice; các script và item khác chọn tất cả.
+- `--pack-bs`: chọn OnlyOffice, Chrome, Mattermost, shortcut IME và Claude Desktop; skip Node.js Dev Tools.
+- Ba preset loại trừ lẫn nhau; parent ghi lựa chọn vào cùng state với menu rồi execution đọc state đó.
 - Unknown flag báo lỗi trước execution.
 
-`remote-setup.sh` luôn gọi entrypoint mới và tiếp tục hỗ trợ `--dev`, `--basic`, `--silent` cùng các tổ hợp.
+`remote-setup.sh` chỉ dùng `--dev` để chọn branch source và passthrough mọi argument còn lại sang entrypoint; `DEBUG=1` được preserve qua sudo.
 
 ### Flow và điều hướng
 
@@ -111,7 +112,7 @@ Atom luôn nằm trong execution plan; `s` chỉ chạy core. Extra có core nh�
 - Metadata thêm/xoá item tự đổi range; metadata/token/order sai bị reject.
 - Tuxedo/non-Tuxedo chỉ chọn đúng một variant slot `1`.
 - Menu xử lý input rỗng/sai, all, số, skip, Back, Review, Run và Quit.
-- CLI matrix gồm interactive, `--all`, `--silent`, `--basic`, `--basic --all`, `--basic --silent`.
+- CLI matrix gồm interactive, `--all`, `--pack-ms`, `--pack-bs` và reject preset trộn/lặp.
 - AI/Chat no-argument không gọi apt/curl/gpg/network và không sửa PATH.
 - Claude Desktop không sửa PATH; Claude/Codex CLI không cài `gpg` và cập nhật PATH idempotent dưới đúng user.
 - Mattermost/Discord không gọi `gpg` hoặc `apt-get update`; Slack có gọi.

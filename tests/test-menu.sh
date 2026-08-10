@@ -48,6 +48,19 @@ run_parent() {
         sh "$ROOT/setup-ubuntu-based.sh" "$@" > "$_output" 2>&1
 }
 
+run_preset() {
+    _output=$1
+    shift
+    : > "$TMP_TEST/execution.log"
+    env \
+        SETUP_TEST_MODE=1 \
+        SETUP_TEST_TUXEDO=0 \
+        SETUP_ATOM_DIR="$ROOT/tests/fixtures/presets/atoms" \
+        SETUP_EXTRA_DIR="$ROOT/tests/fixtures/presets/extras" \
+        SETUP_TEST_LOG="$TMP_TEST/execution.log" \
+        sh "$ROOT/setup-ubuntu-based.sh" "$@" > "$_output" 2>&1
+}
+
 . "$ROOT/lib/setup-contract.sh"
 
 if setup_validate_metadata "$ROOT/tests/fixtures/atoms/3-items.sh" && \
@@ -223,35 +236,80 @@ else
 fi
 assert_contains "$OUT" "Bắt buộc nhập lựa chọn" "menu báo lỗi khi Enter rỗng"
 
-SETUP_TEST_TUXEDO_VALUE=1
-OUT="$TMP_TEST/tuxedo.out"
-if run_parent '' "$OUT" --all --basic; then
-    pass "--basic --all chạy không tương tác"
+OUT="$TMP_TEST/preset-all.out"
+if run_preset "$OUT" --all; then
+    pass "--all áp selection và chạy không tương tác"
 else
-    fail "--basic --all chạy không tương tác"
+    fail "--all áp selection và chạy không tương tác"
 fi
-assert_contains "$TMP_TEST/execution.log" "1-tuxedo.sh|--all" "Tuxedo variant nhận --all"
-assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh" "non-Tuxedo variant bị lọc"
-assert_not_contains "$TMP_TEST/execution.log" "1-items.sh" "--basic không chạy extras"
-unset SETUP_TEST_TUXEDO_VALUE
+assert_not_contains "$OUT" "Review execution plan" "--all không hiện review"
+assert_contains "$TMP_TEST/execution.log" "4-office.sh|--all" "--all chọn toàn bộ Office"
+assert_contains "$TMP_TEST/execution.log" "5-basic-apps.sh|--all" "--all chọn toàn bộ Basic Apps"
+assert_contains "$TMP_TEST/execution.log" "1-chat.sh|--all" "--all chọn toàn bộ Chat"
+assert_contains "$TMP_TEST/execution.log" "2-dev.sh|" "--all enable Dev Tools core-only"
+assert_not_contains "$TMP_TEST/execution.log" "2-dev.sh|--all" "--all không truyền argument cho extra core-only"
+assert_contains "$TMP_TEST/execution.log" "4-ai.sh|--all" "--all chọn toàn bộ AI"
 
-OUT="$TMP_TEST/basic-interactive.out"
-if run_parent 's\nr\n' "$OUT" --basic; then
-    pass "--basic tương tác chỉ có atom stages và review"
+OUT="$TMP_TEST/preset-ms.out"
+if run_preset "$OUT" --pack-ms; then
+    pass "--pack-ms chạy không tương tác"
 else
-    fail "--basic tương tác chỉ có atom stages và review"
+    fail "--pack-ms chạy không tương tác"
 fi
-assert_contains "$OUT" "Extras: Skipped (--basic)" "review --basic ghi rõ extras bị skip"
-assert_not_contains "$TMP_TEST/execution.log" "1-items.sh" "--basic tương tác không chạy extras"
+assert_not_contains "$OUT" "Review execution plan" "--pack-ms không hiện review"
+assert_contains "$TMP_TEST/execution.log" "4-office.sh|1" "--pack-ms chỉ chọn OnlyOffice"
+assert_not_contains "$TMP_TEST/execution.log" "4-office.sh|--all" "--pack-ms không chọn Office khác"
+assert_contains "$TMP_TEST/execution.log" "5-basic-apps.sh|--all" "--pack-ms chọn toàn bộ Basic Apps"
+assert_contains "$TMP_TEST/execution.log" "1-chat.sh|--all" "--pack-ms chọn toàn bộ Chat"
+assert_contains "$TMP_TEST/execution.log" "4-ai.sh|--all" "--pack-ms chọn toàn bộ AI"
 
-OUT="$TMP_TEST/basic-silent.out"
-if run_parent '' "$OUT" --basic --silent; then
-    pass "--basic --silent chạy atom với --all"
+OUT="$TMP_TEST/preset-bs.out"
+if run_preset "$OUT" --pack-bs; then
+    pass "--pack-bs chạy không tương tác"
 else
-    fail "--basic --silent chạy atom với --all"
+    fail "--pack-bs chạy không tương tác"
 fi
-assert_contains "$TMP_TEST/execution.log" "3-items.sh|--all" "--silent truyền --all xuống child"
-assert_not_contains "$TMP_TEST/execution.log" "1-items.sh" "--basic --silent không chạy extras"
+assert_not_contains "$OUT" "Review execution plan" "--pack-bs không hiện review"
+assert_contains "$TMP_TEST/execution.log" "4-office.sh|1" "--pack-bs chọn OnlyOffice"
+assert_contains "$TMP_TEST/execution.log" "5-basic-apps.sh|1" "--pack-bs chọn Chrome"
+assert_contains "$TMP_TEST/execution.log" "2-flatpak.sh|" "--pack-bs vẫn chạy atom core"
+assert_contains "$TMP_TEST/execution.log" "1-chat.sh|2" "--pack-bs chọn Mattermost"
+assert_not_contains "$TMP_TEST/execution.log" "2-dev.sh|" "--pack-bs skip Dev Tools"
+assert_contains "$TMP_TEST/execution.log" "3-ime-shortcut.sh|" "--pack-bs enable shortcut IME"
+assert_contains "$TMP_TEST/execution.log" "4-ai.sh|1" "--pack-bs chọn Claude Desktop"
+
+OUT="$TMP_TEST/preset-invalid.out"
+if run_preset "$OUT" --all --pack-ms; then
+    fail "preset trộn phải bị reject"
+else
+    pass "preset trộn bị reject"
+fi
+assert_contains "$OUT" "Chỉ được dùng một preset" "preset trộn báo lỗi rõ ràng"
+
+if run_preset "$OUT" --pack-bs --pack-bs; then
+    fail "preset lặp phải bị reject"
+else
+    pass "preset lặp bị reject"
+fi
+assert_contains "$OUT" "Chỉ được dùng một preset" "preset lặp báo lỗi rõ ràng"
+
+for removed_flag in --basic --silent --dev; do
+    OUT="$TMP_TEST/removed-${removed_flag#--}.out"
+    if run_preset "$OUT" "$removed_flag"; then
+        fail "$removed_flag phải bị reject"
+    else
+        pass "$removed_flag bị reject"
+    fi
+    assert_contains "$OUT" "Không rõ tuỳ chọn" "$removed_flag báo lỗi unknown option"
+done
+
+REMOTE_FILE="$ROOT/remote-setup.sh"
+assert_contains "$REMOTE_FILE" '--dev) BRANCH="dev" ;;' "remote chỉ tách --dev để chọn branch"
+assert_contains "$REMOTE_FILE" '*) SETUP_ARGS="${SETUP_ARGS}${SETUP_ARGS:+ }$arg" ;;' \
+    "remote passthrough argument setup khác"
+assert_contains "$REMOTE_FILE" '--preserve-env=DEBUG' "remote giữ DEBUG qua sudo"
+assert_not_contains "$REMOTE_FILE" 'MODE_BASIC' "remote không còn xử lý basic mode"
+assert_not_contains "$REMOTE_FILE" 'MODE_SILENT' "remote không còn xử lý silent mode"
 
 OUT="$TMP_TEST/failure.out"
 if run_parent '' "$OUT" --all; then
@@ -259,8 +317,8 @@ if run_parent '' "$OUT" --all; then
 else
     pass "runtime failure tạo exit non-zero tổng hợp"
 fi
-assert_contains "$TMP_TEST/execution.log" "2-failure.sh|--all" "failing child đã được gọi"
-assert_contains "$TMP_TEST/execution.log" "3-core.sh|--all" "parent tiếp tục sau failing child"
+assert_contains "$TMP_TEST/execution.log" "2-failure.sh|" "failing child đã được gọi"
+assert_contains "$TMP_TEST/execution.log" "3-core.sh|" "parent tiếp tục sau failing child"
 assert_contains "$OUT" "failed=1" "summary tổng hợp failure"
 
 STUB_BIN="$TMP_TEST/stubs"

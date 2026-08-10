@@ -19,30 +19,35 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 print_help() {
     cat <<EOF
-Usage: sudo $0 [--all|-a] [--silent] [--basic] [--help|-h]
+Usage: sudo $0 [--all|-a|--pack-ms|--pack-bs] [--help|-h]
 
   (không đối số)  Mở menu động, review rồi chạy
   --all, -a       Chọn toàn bộ atom items và extras, không hiện menu
-  --silent        Như --all và truyền --all xuống mọi child
-  --basic         Chỉ chạy atom scripts, bỏ qua toàn bộ extras
+  --pack-ms       Chọn OnlyOffice; các script và item khác chọn tất cả
+  --pack-bs       Preset cơ bản: OnlyOffice, Chrome, Mattermost, shortcut IME và Claude Desktop
   --help, -h      In trợ giúp này
 
-Các cờ --basic, --all và --silent có thể kết hợp, không phụ thuộc thứ tự.
+Chỉ được dùng một preset: --all/-a, --pack-ms hoặc --pack-bs.
 EOF
 }
 
-MODE_ALL=0
-MODE_SILENT=0
-MODE_BASIC=0
+PRESET=""
 SHOW_HELP=0
 for arg in "$@"; do
     case "$arg" in
-        --all|-a) MODE_ALL=1 ;;
-        --silent) MODE_ALL=1; MODE_SILENT=1 ;;
-        --basic) MODE_BASIC=1 ;;
+        --all|-a) _preset=all ;;
+        --pack-ms) _preset=pack-ms ;;
+        --pack-bs) _preset=pack-bs ;;
         --help|-h) SHOW_HELP=1 ;;
         *) die "Không rõ tuỳ chọn: $arg. Dùng --help để xem hướng dẫn." ;;
     esac
+    if [ -n "${_preset:-}" ]; then
+        if [ -n "$PRESET" ]; then
+            die "Chỉ được dùng một preset: --all/-a, --pack-ms hoặc --pack-bs"
+        fi
+        PRESET=$_preset
+        _preset=""
+    fi
 done
 [ "$SHOW_HELP" -eq 0 ] || { print_help; exit 0; }
 
@@ -55,8 +60,7 @@ fi
 ATOM_DIR=${SETUP_ATOM_DIR:-"$SCRIPT_DIR/atom-scripts"}
 EXTRA_DIR=${SETUP_EXTRA_DIR:-"$SCRIPT_DIR/extras"}
 [ -d "$ATOM_DIR" ] || die "Không tìm thấy thư mục atom scripts: $ATOM_DIR"
-[ "$MODE_BASIC" -eq 1 ] || [ -d "$EXTRA_DIR" ] \
-    || die "Không tìm thấy thư mục extras: $EXTRA_DIR"
+[ -d "$EXTRA_DIR" ] || die "Không tìm thấy thư mục extras: $EXTRA_DIR"
 
 STATE_DIR=$(mktemp -d /tmp/setup-menu.XXXXXX) || die "Không tạo được thư mục state tạm"
 cleanup_state() {
@@ -165,9 +169,7 @@ scan_directory atom "$ATOM_DIR" "$ATOM_MANIFEST"
 if ! awk -F'|' '$1 == 1 { found=1 } END { exit !found }' "$ATOM_MANIFEST"; then
     record_status FAILED "$(status_fallback_description atom 1)" "không có Tuxedo/non-Tuxedo variant phù hợp"
 fi
-if [ "$MODE_BASIC" -eq 0 ]; then
-    scan_directory extra "$EXTRA_DIR" "$EXTRA_MANIFEST"
-fi
+scan_directory extra "$EXTRA_DIR" "$EXTRA_MANIFEST"
 
 selection_file() {
     printf '%s/%s-%s.selection\n' "$STATE_DIR" "$1" "$2"
@@ -183,6 +185,63 @@ set_selection() {
     printf '%s\n' "$3" > "$_selection_path"
 }
 
+require_manifest_slot() {
+    _manifest=$1
+    _slot=$2
+    awk -F'|' -v slot="$_slot" '$1 == slot { found=1 } END { exit !found }' "$_manifest" \
+        || die "Preset yêu cầu script slot $_slot nhưng không tìm thấy"
+}
+
+select_all_items() {
+    _kind=$1
+    _manifest=$2
+    while IFS='|' read -r _slot _file _description _core _count; do
+        [ -n "$_slot" ] || continue
+        [ "$_count" -eq 0 ] || set_selection "$_kind" "$_slot" --all
+    done < "$_manifest"
+}
+
+enable_all_extras() {
+    _enabled=""
+    while IFS='|' read -r _slot _rest; do
+        [ -n "$_slot" ] || continue
+        _enabled="${_enabled}${_enabled:+ }$_slot"
+    done < "$EXTRA_MANIFEST"
+    printf '%s\n' "$_enabled" > "$EXTRA_SELECTED_FILE"
+}
+
+apply_preset() {
+    case "$PRESET" in
+        all)
+            select_all_items atom "$ATOM_MANIFEST"
+            select_all_items extra "$EXTRA_MANIFEST"
+            enable_all_extras
+            ;;
+        pack-ms)
+            select_all_items atom "$ATOM_MANIFEST"
+            select_all_items extra "$EXTRA_MANIFEST"
+            enable_all_extras
+            require_manifest_slot "$ATOM_MANIFEST" 4
+            set_selection atom 4 1
+            ;;
+        pack-bs)
+            require_manifest_slot "$ATOM_MANIFEST" 4
+            require_manifest_slot "$ATOM_MANIFEST" 5
+            require_manifest_slot "$EXTRA_MANIFEST" 1
+            require_manifest_slot "$EXTRA_MANIFEST" 2
+            require_manifest_slot "$EXTRA_MANIFEST" 3
+            require_manifest_slot "$EXTRA_MANIFEST" 4
+            set_selection atom 4 1
+            set_selection atom 5 1
+            printf '1 3 4\n' > "$EXTRA_SELECTED_FILE"
+            set_selection extra 1 2
+            set_selection extra 4 1
+            ;;
+        '') ;;
+        *) die "Preset không hợp lệ: $PRESET" ;;
+    esac
+}
+
 build_stages() {
     : > "$STAGES_FILE"
     while IFS='|' read -r _slot _file _description _core _count; do
@@ -191,7 +250,7 @@ build_stages() {
             "$_slot" "$_file" "$_description" >> "$STAGES_FILE"
     done < "$ATOM_MANIFEST"
 
-    if [ "$MODE_BASIC" -eq 0 ] && [ -s "$EXTRA_MANIFEST" ]; then
+    if [ -s "$EXTRA_MANIFEST" ]; then
         printf 'extras||||\n' >> "$STAGES_FILE"
         _enabled=$(cat "$EXTRA_SELECTED_FILE")
         while IFS='|' read -r _slot _file _description _core _count; do
@@ -407,21 +466,17 @@ show_review() {
         print_script_review atom "$_slot" "$_file" "$_description" "$_core" "$_count"
     done < "$ATOM_MANIFEST"
 
-    if [ "$MODE_BASIC" -eq 1 ]; then
-        printf '\n\033[90mExtras: Skipped (--basic)\033[0m\n'
-    else
-        printf '\nExtras:\n'
-        _enabled=$(cat "$EXTRA_SELECTED_FILE")
-        while IFS='|' read -r _slot _file _description _core _count; do
-            [ -n "$_slot" ] || continue
-            if setup_has_word "$_enabled" "$_slot"; then
-                print_script_review extra "$_slot" "$_file" "$_description" "$_core" "$_count"
-            else
-                printf '  \033[97m%s. %s\033[0m\n' "$_slot" "$_description"
-                printf '     \033[90mSkipped: not selected\033[0m\n'
-            fi
-        done < "$EXTRA_MANIFEST"
-    fi
+    printf '\nExtras:\n'
+    _enabled=$(cat "$EXTRA_SELECTED_FILE")
+    while IFS='|' read -r _slot _file _description _core _count; do
+        [ -n "$_slot" ] || continue
+        if setup_has_word "$_enabled" "$_slot"; then
+            print_script_review extra "$_slot" "$_file" "$_description" "$_core" "$_count"
+        else
+            printf '  \033[97m%s. %s\033[0m\n' "$_slot" "$_description"
+            printf '     \033[90mSkipped: not selected\033[0m\n'
+        fi
+    done < "$EXTRA_MANIFEST"
     printf '\n  \033[1;33mr)\033[0m Run    \033[1;33mb)\033[0m Back    \033[1;33mq)\033[0m Quit\n'
     printf 'Nhập lựa chọn: '
 }
@@ -537,28 +592,11 @@ run_child() {
 execute_plan() {
     while IFS='|' read -r _slot _file _description _core _count; do
         [ -n "$_slot" ] || continue
-        if [ "$MODE_ALL" -eq 1 ]; then
-            _args=--all
-        else
-            _args=$(get_selection atom "$_slot")
-        fi
+        _args=$(get_selection atom "$_slot")
         run_child atom "$_slot" "$_file" "$_description" "$_args"
     done < "$ATOM_MANIFEST"
 
-    if [ "$MODE_BASIC" -eq 1 ]; then
-        record_status SKIPPED "Extras" "--basic"
-        return
-    fi
-
-    if [ "$MODE_ALL" -eq 1 ]; then
-        _enabled=""
-        while IFS='|' read -r _slot _rest; do
-            [ -n "$_slot" ] || continue
-            _enabled="${_enabled}${_enabled:+ }$_slot"
-        done < "$EXTRA_MANIFEST"
-    else
-        _enabled=$(cat "$EXTRA_SELECTED_FILE")
-    fi
+    _enabled=$(cat "$EXTRA_SELECTED_FILE")
 
     while IFS='|' read -r _slot _file _description _core _count; do
         [ -n "$_slot" ] || continue
@@ -567,11 +605,7 @@ execute_plan() {
             continue
         fi
 
-        if [ "$MODE_ALL" -eq 1 ]; then
-            _args=--all
-        else
-            _args=$(get_selection extra "$_slot")
-        fi
+        _args=$(get_selection extra "$_slot")
 
         if [ "$_count" -gt 0 ] && [ -z "$_args" ] && [ -z "$_core" ]; then
             record_status SKIPPED "$_description" "no items selected"
@@ -621,7 +655,7 @@ print_gnome_kimpanel_notice() {
     fi
 }
 
-if [ "$MODE_ALL" -eq 0 ]; then
+if [ -z "$PRESET" ]; then
     if run_interactive_menu; then
         :
     else
@@ -633,11 +667,8 @@ if [ "$MODE_ALL" -eq 0 ]; then
         exit "$_menu_code"
     fi
 else
-    if [ "$MODE_BASIC" -eq 1 ]; then
-        info "Chế độ không tương tác: chọn toàn bộ atom scripts, bỏ qua extras"
-    else
-        info "Chế độ không tương tác: chọn toàn bộ atom scripts và extras"
-    fi
+    apply_preset
+    info "Chế độ không tương tác: áp preset --$PRESET"
 fi
 
 execute_plan
