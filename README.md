@@ -85,8 +85,6 @@ curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-script
 > Chỉ parent có menu. Child không argument sẽ chạy core nếu có; child không có core sẽ warning rồi no-op. Parent tiếp tục các script còn lại khi một child lỗi và trả non-zero tổng hợp ở cuối.
  
 ### Additional: Nếu dùng GNOME (VD: Ubuntu)
-**Cài thêm các extension cần thiết từ GNOME Extension Manager:**
+**Cài thêm extension cần thiết từ GNOME Extension Manager:**
 - **KIMPanel (Hiển thị bộ gõ trên status bar)** - Highly recommend để bộ gõ tiếng Việt có trải nghiệm tốt:<br>
 <https://extensions.gnome.org/extension/261/kimpanel>
-- **Copyous (Clipboard Manager)** - Recommend, để có có thể paste những dữ liệu copy cũ hơn trong lịch sử mà không cần copy lại (Win + V):<br>
-<https://extensions.gnome.org/extension/8834/copyous>
