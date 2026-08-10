@@ -1,53 +1,116 @@
 # Revamp Cơ chế Menu
 
-## Mục tiêu
+## Mục tiêu và mốc migrate
 
-Xoá menu ở các script lẻ, sử dụng menu tổng, chọn một lượt rồi chạy tự động, tránh việc đợi từng stage lại hiện menu tiếp theo
+- Xoá menu ở các script con, gom toàn bộ lựa chọn vào một menu tổng, review một lần rồi chạy tự động không hỏi thêm.
+- Mốc scripts gốc khi tách nhánh `dev`: commit `408cb0c5bbb7c693b4a9f3b25331a1b4b4caf956` (`add dev branch option`).
+- Hợp nhất `setup-all-ubuntu-based.sh` và `setup-basic-ubuntu-based.sh` thành `setup-ubuntu-based.sh`; không giữ compatibility wrapper.
 
-## Xoá menu ở các script con
+## Contract metadata của script con (R.1)
 
-### Cơ chế chung 
-Việc chọn thực hiện hạng mục nào ở các script con (trong `atom-scripts` và `extras`) sẽ dựa hoàn toàn vào argument, không có menu nữa
+Mỗi file `<số>-*.sh` trong `atom-scripts` và `extras` khai báo metadata trong header để parent và child cùng đọc từ một nguồn:
 
-### Arguments
-- Chỉ có `--all/-a`: sẽ thực hiện toàn bộ các mục
-- Có nhiều argument tương ứng với các mục: Chỉ thực hiện những mục tương ứng có trong argument
-- Có `--all/-a` kèm các argument chỉ định các mục khác: all exclude - thực hiện tất cả trừ các mục được chỉ định (mục này tạm thời chưa làm vội)
-- Ngoài ra: báo lỗi argument, nhưng chỉ skip script lẻ, còn script cha vẫn chạy tiếp
+- `description`: bắt buộc, mô tả ngắn gọn script.
+- `when`: bắt buộc, một trong `always`, `tuxedo`, `non-tuxedo`.
+- `core-description`: không bắt buộc; mô tả phần luôn chạy dù không chọn item.
+- `item`: zero hoặc nhiều dòng `function|label`; số argument được tính động theo thứ tự các dòng.
 
-### Cơ chế phục vụ việc quy hoạch động các mục (R.1)
-- Tìm cơ chế để mỗi lần update hạng mục thì chỉ cần thêm/bớt hạng mục, không cần sửa định nghĩa argument, ví dụ:
-  - phase đầu, có 4 hạng mục, có thể điền argument là 3 4, điền 5 6 sẽ lỗi
-  - phase sau, thêm 2 hạng mục, nhưng chỉ cần thêm hạng mục chứ không cần thêm định nghĩa argument, có thể điền argument là 4 5 6, mục 5 6 sẽ tự động nhận
-  - phase sau nữa, xoá hạng mục 4, hạng mục 5 6 tự được đổi thành 4 5, điền 4 sẽ không thực hiện hạng mục 4 cũ, mà thực hiện hạng mục 4 mới (chính là hạng mục 5 cũ)
-- Liên kết với cơ chế build menu động ở script cha
-  - Mỗi script con đều có phần description ngắn gọn, xúc tích, để biết script đó tên là gì, cài những hạng mục nào
-  - Có cơ chế để script cha có thể quét xem script con gồm những hạng mục nào, đánh số argument nào
+Metadata không hợp lệ làm script đó bị skip và được ghi nhận là failure; parent vẫn tiếp tục với các script khác. Thêm/xoá item chỉ cần thêm/xoá function và dòng metadata, không sửa parser hoặc bảng argument.
 
-### Cơ chế migrate
-- Trong scripts gốc khi mới tách nhánh dev (check xem trạng thái này ở commit nào, rồi điền luôn vào đây), có những hạng mục luôn thực hiện (được note sẵn là luôn thực hiện, hoặc chưa được đưa vào menu), thì cũng chưa tạo thành hạng mục có thể lựa chọn
+### Arguments của child
 
-### Cơ chế khác
-- Khi script con báo error và thất bại, hoặc bị skip, thì script cha vẫn tiếp tục chạy
+- `--all`/`-a`: chạy toàn bộ item.
+- Một hoặc nhiều số, ví dụ `1 3`: chạy các item hợp lệ theo thứ tự metadata, tự loại duplicate.
+- Không argument: chạy core nếu có; nếu không có core thì warning và no-op thành công.
+- `--help`/`-h`: sinh help và danh sách item động từ metadata.
+- Token sai, số ngoài range hoặc trộn `--all` với số: báo lỗi trước mọi side effect và exit `2`.
+- `--all` kèm số để exclude được hoãn, chưa triển khai trong phase này.
 
+Script con không còn menu và không đọc `/dev/tty`.
 
-## Build menu ở script cha, sử dụng cơ chế build menu động
+## Phân loại core/item tại mốc migrate
 
-### Cấu trúc script và cơ chế menu chung
-- Không còn chia 2 scripts `setup-all-ubuntu-based.sh` và `setup-basic-ubuntu-based.sh`, quy về 1 script chung `setup-ubuntu-based.sh`
-- Trong script `setup-ubuntu-based.sh`, là hệ thống menu để định nghĩa các hạng mục sẽ thực hiện, sau khi kết thúc hệ thống chọn menu thì script cha này sẽ gọi các script con tương ứng với argument tương ứng, không cần thêm tương tác gì khác từ người dùng.
-- Menu có nhiều stages (ví dụ: sau khi lựa chọn các extras, sẽ đến menu lựa chọn các hạng mục trong mỗi extra, lần lượt với từng extra). Có nút back để quay lại stage trước
+### Atom scripts
 
-### Cơ chế migrate filename của các script con (R.2)
-- Quét các scripts cha trong scripts gốc khi mới tách nhánh dev (check xem trạng thái này ở commit nào, rồi điền luôn vào đây), xem script con nào được gọi trước, script con nào được gọi sau, đánh số thứ tự vào filename.
-- Các scripts ở `atom-scripts` sẽ được đánh số riêng với các scripts ở `extras`. (VD `atom-scripts` bắt đầu từ `1-xxx.sh`, `2-xxx.sh`,... thì `extras` cũng bắt đầu từ `1-xxx.sh`, `2-xxx.sh`,... chứ không phải bắt đầu từ `3-xxx.sh`)
+- De-snap, Tuxedo generalization, Flatpak/Flathub và Lotus: toàn bộ logic hiện tại là core.
+- Basic Apps: apt update, fcitx5, purge ibus và autostart là core; FreeOffice, Chrome, Chromium và VS Code là item.
 
-### Cơ chế build menu động (R.3)
-Tự quét các scripts con trong `atom-scripts` và `extras` để xây dựng các hạng mục. Cụ thể:
-- Với các scripts con trong `atom-scripts`:
-  - Không có lựa chọn scripts nào để chạy, mà luôn chạy tất cả theo thứ tự filename được migrate ở (R.2)
-  - Có menu lựa chọn các hạng mục trong từng atom script, show menu thành các stage theo thứ tự filename luôn. Ví dụ: `2_xxx.sh` có 3 hạng mục được lựa chọn, `5_yyy.sh` có 4 hạng mục được lựa chọn => menu sẽ show: stage 1 gồm 3 hạng mục ở `2_xxx.sh`, stage 2 sẽ gồm 4 hạng mục ở `5_yyy.sh`
-- Với các scripts con trong `extras`
-  - Có menu lựa chọn scripts nào để chạy. Ví dụ có 3 scripts `1_xxx.sh`, `2_yyy.sh`, `3_zzz.sh` thì sẽ có menu gồm 3 options: `1: <Description of extra script 1>`, `2: <Description of extra script 2>`, `3: <Description of extra script 3>`
-  - Có menu lựa chọn các hạng mục trong từng extra script, show menu thành các stage tiếp sau menu chọn các extra.
-- Cơ chế quét script con để lấy description và các hạng mục trong script sẽ được xây dựng trên cơ chế (R.1) ở các script con
+### Extras
+
+- AI Tools: không có core; Claude Desktop, Claude Code CLI và Codex CLI là item.
+- Chat Apps: không có core; Slack, Mattermost và Discord là item.
+- IME Shortcut và Dev Tools: toàn bộ logic hiện tại là core, chưa tách item.
+
+AI Tools và Chat Apps không được cài dependency hoặc sửa hệ thống khi không chọn item. Nếu một extra không có core và không chọn item, parent loại nó khỏi execution plan và review ghi `Skipped: no items selected`.
+
+### Dependency/PATH theo item
+
+- AI Tools bỏ bước chuẩn bị toàn cục:
+  - Claude Desktop tự bảo đảm `curl`, `gpg`, apt lock/update rồi cài package.
+  - Claude Code và Codex tự bảo đảm `curl`, sau đó gọi helper thêm `~/.local/bin` vào `.bashrc`/`.zshrc` dưới user thật, idempotent và không tạo file root-owned.
+  - Chỉ các CLI mới sửa PATH; chọn riêng Claude Desktop không sửa PATH.
+- Chat Apps bỏ `apt-get update`, `curl`, `gpg` toàn cục:
+  - Slack tự bảo đảm `curl` + `gpg`, đợi apt lock rồi update/install.
+  - Mattermost và Discord tự bảo đảm `curl`, chỉ đợi apt lock trước khi cài `.deb`; không cài `gpg` và không chạy `apt-get update`.
+
+## Quy hoạch filename và applicability (R.2)
+
+Atom scripts dùng order slot:
+
+1. De-snap (`when=non-tuxedo`) và Tuxedo generalization (`when=tuxedo`) cùng prefix `1-`.
+2. Flatpak/Flathub.
+3. Basic Apps.
+4. Lotus.
+
+Extras đánh số độc lập theo thứ tự hiện tại: `1` AI Tools, `2` IME Shortcut, `3` Chat Apps, `4` Dev Tools.
+
+Parent chỉ scan `<số>-*.sh`, lọc `when` theo `/etc/os-release` trước khi build menu và execution plan. Slot `1` phải còn đúng một variant; duplicate active slot hoặc không chọn được variant là failure nhưng không chặn các slot khác.
+
+## Menu động ở parent (R.3)
+
+### CLI của `setup-ubuntu-based.sh`
+
+- Không cờ: menu tương tác.
+- `--all`: chọn toàn bộ atom items và extras, không hiện menu.
+- `--silent`: như `--all` và truyền `--all` xuống mọi child trong execution plan.
+- `--basic`: loại extras khỏi menu và execution; kết hợp được với `--all` hoặc `--silent`.
+- Unknown flag báo lỗi trước execution.
+
+`remote-setup.sh` luôn gọi entrypoint mới và tiếp tục hỗ trợ `--dev`, `--basic`, `--silent` cùng các tổ hợp.
+
+### Flow và điều hướng
+
+1. Các stage item của atom theo order slot.
+2. Stage chọn extras.
+3. Stage item của từng extra được chọn.
+4. Review execution plan.
+
+Mỗi stage bắt buộc nhập; Enter rỗng hoặc input sai sẽ reprompt:
+
+- `a`: chọn tất cả.
+- Danh sách số cách nhau bằng whitespace.
+- `s`: không chọn item.
+- `b`: quay lại stage trước, giữ state còn hợp lệ.
+- `q`: thoát thành công trước execution.
+- Review dùng `r` để chạy, `b` để sửa, `q` để thoát.
+
+Atom luôn nằm trong execution plan; `s` chỉ chạy core. Extra có core nhưng không có item vẫn chạy core. Extra không có core và không chọn item bị loại khỏi plan. Sau `r`, parent chạy atom theo slot rồi extras theo order và không hỏi thêm.
+
+### Kết quả execution
+
+- Skip do user hoặc do `when` không áp dụng là success.
+- Parse error, metadata error hoặc runtime error được ghi nhận; parent tiếp tục chạy các script còn lại.
+- Cuối cùng in summary `success/skipped/failed`; nếu có failure thì parent exit `1`, nếu không thì exit `0`.
+
+## Acceptance tests
+
+- `sh -n` pass cho helper, parent, remote setup và toàn bộ child.
+- Metadata thêm/xoá item tự đổi range; metadata/token/order sai bị reject.
+- Tuxedo/non-Tuxedo chỉ chọn đúng một variant slot `1`.
+- Menu xử lý input rỗng/sai, all, số, skip, Back, Review, Run và Quit.
+- CLI matrix gồm interactive, `--all`, `--silent`, `--basic`, `--basic --all`, `--basic --silent`.
+- AI/Chat no-argument không gọi apt/curl/gpg/network và không sửa PATH.
+- Claude Desktop không sửa PATH; Claude/Codex CLI không cài `gpg` và cập nhật PATH idempotent dưới đúng user.
+- Mattermost/Discord không gọi `gpg` hoặc `apt-get update`; Slack có gọi.
+- Dummy child xác nhận đúng order/argument, extra rỗng bị loại, tiếp tục sau lỗi và exit non-zero tổng hợp.
+- Test không được gọi apt/network hoặc sửa hệ thống thật.

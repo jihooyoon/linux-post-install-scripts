@@ -1,8 +1,13 @@
 #!/bin/sh
-# install-basic-apps-deb.sh — Ubuntu/Debian: gỡ sạch LibreOffice, cài fcitx5 (purge ibus, autostart) + FreeOffice
-# Chạy: sudo ./install-basic-apps-deb.sh            (hiện menu chọn app)
-#       sudo ./install-basic-apps-deb.sh --all | -a (cài tất cả, không hỏi)
-#       sudo ./install-basic-apps-deb.sh --help | -h (trợ giúp)
+# @setup-description: Cài fcitx5 và các ứng dụng desktop cơ bản
+# @setup-when: always
+# @setup-core-description: Cập nhật apt, cài fcitx5, purge ibus và cấu hình autostart
+# @setup-item: install_freeoffice|LibreOffice → FreeOffice (gỡ LO, cài FreeOffice)
+# @setup-item: install_chrome|Google Chrome
+# @setup-item: install_chromium|Chromium (.deb thật)
+# @setup-item: install_vscode|Visual Studio Code
+# 3-install-basic-apps-deb.sh — Ubuntu/Debian: gỡ sạch LibreOffice, cài fcitx5 (purge ibus, autostart) + FreeOffice
+# Chạy: sudo ./3-install-basic-apps-deb.sh [--all|-a|item-number ...]
 
 set -e
 
@@ -13,6 +18,15 @@ info() { printf '\033[1;34m[install]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m      %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m    %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
+
+CHILD_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CHILD_FILE="$CHILD_DIR/$(basename -- "$0")"
+. "$CHILD_DIR/../lib/setup-contract.sh"
+setup_child_prepare "$CHILD_FILE" "$@" || exit $?
+if [ "$SETUP_SHOW_HELP" -eq 1 ]; then
+    setup_print_help "$CHILD_FILE"
+    exit 0
+fi
 
 wait_apt() {
     _i=0
@@ -32,24 +46,6 @@ wait_apt() {
     fuser -k /var/lib/dpkg/lock 2>/dev/null || true
     sleep 2
 }
-
-# --- Trợ giúp (không cần root) ---
-case "${1:-}" in
-    --help|-h)
-        echo "Usage: sudo $0 [--all|-a] [--help|-h]"
-        echo ""
-        echo "  (không đối số)  Hiện menu tương tác để chọn app cài đặt"
-        echo "  --all, -a       Cài tất cả, không hiện menu"
-        echo "  --help, -h      In trợ giúp này"
-        echo ""
-        echo "  Các app có thể chọn trong menu:"
-        echo "    1) LibreOffice → FreeOffice (gỡ LO, cài FreeOffice)"
-        echo "    2) Google Chrome"
-        echo "    3) Chromium (.deb thật)"
-        echo "    4) Visual Studio Code"
-        exit 0
-        ;;
-esac
 
 # --- Kiểm tra quyền root ---
 [ "$(id -u)" -eq 0 ] || die "Phải chạy với quyền root: sudo $0"
@@ -190,69 +186,6 @@ install_vscode() {
 }
 
 # ============================================================
-# Menu & chọn app
-# ============================================================
-
-# Định nghĩa các mục có thể chọn (label|hàm)
-MENU_ITEMS="
-LibreOffice → FreeOffice (gỡ LO, cài FreeOffice)|install_freeoffice
-Google Chrome|install_chrome
-Chromium (.deb thật)|install_chromium
-Visual Studio Code|install_vscode
-"
-
-show_menu() {
-    printf '\n'
-    printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
-    printf '\033[1;36m  Chọn app muốn cài đặt\033[0m\n'
-    printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
-    i=1
-    while IFS='|' read -r label func; do
-        [ -z "$label" ] && continue
-        printf '  \033[1;33m%d)\033[0m %s\n' "$i" "$label"
-        i=$((i + 1))
-    done <<EOF
-$MENU_ITEMS
-EOF
-    printf '  \033[1;33ma)\033[0m Cài tất cả (mặc định)\n'
-    printf '  \033[1;33mq)\033[0m Thoát (không cài gì thêm)\n'
-    printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
-    printf 'Nhập số (vd: 1 3 4) hoặc Enter để cài tất cả: '
-}
-
-parse_menu_choice() {
-    # $1 = raw input string from user
-    _input="$1"
-
-    # Mặc định (Enter rỗng) hoặc 'a' → tất cả
-    if [ -z "$_input" ] || [ "$_input" = "a" ]; then
-        echo "1 2 3 4"
-        return
-    fi
-
-    # 'q' → thoát
-    if [ "$_input" = "q" ]; then
-        echo "quit"
-        return
-    fi
-
-    # Trả về nguyên chuỗi số đã nhập
-    echo "$_input"
-}
-
-# ============================================================
-# Argument parsing
-# ============================================================
-
-ALL=0
-
-case "${1:-}" in
-    --all|-a) ALL=1 ;;
-    "")       ;;  # Mặc định: hiện menu
-    *)        die "Không rõ tuỳ chọn: $1. Dùng --help để xem hướng dẫn." ;;
-esac
-
-# ============================================================
 # Luôn chạy (không cần chọn)
 # ============================================================
 
@@ -346,58 +279,12 @@ fi
 
 ok "Đã cài fcitx5 (đăng xuất/đăng nhập lại để áp dụng)"
 
-# ============================================================
-# Chọn app để cài
-# ============================================================
-
-if [ "$ALL" -eq 1 ]; then
-    SELECTED="1 2 3 4"
-    info "Chế độ --all: cài tất cả"
+if [ -z "$SETUP_SELECTED" ]; then
+    warn "Không chọn ứng dụng tùy chọn — chỉ chạy phần core"
 else
-    show_menu
-    read -r USER_CHOICE </dev/tty
-
-    SELECTED=$(parse_menu_choice "$USER_CHOICE")
-
-    if [ "$SELECTED" = "quit" ]; then
-        printf '\n\033[1;33mĐã thoát. Các bước đã chạy: cập nhật gói + fcitx5 + purge ibus.\033[0m\n'
-        exit 0
-    fi
+    setup_run_selected "$CHILD_FILE" "$SETUP_SELECTED"
 fi
-
-# Chạy các mục đã chọn
-FIRST=1
-for num in $SELECTED; do
-    i=1
-    while IFS='|' read -r label func; do
-        [ -z "$label" ] && continue
-        if [ "$i" -eq "$num" ]; then
-            printf '\n'
-            if [ "$FIRST" -eq 1 ]; then
-                FIRST=0
-            fi
-            info "PROCESSING mục $num ($label) — hàm: $func"
-            $func
-            break
-        fi
-        i=$((i + 1))
-    done <<EOF
-$MENU_ITEMS
-EOF
-done
 
 printf '\n\033[1;32mHoàn tất!\033[0m Tóm tắt:\n'
 printf '  - fcitx5: cài xong, đã purge ibus, autostart sẵn (đăng xuất/đăng nhập lại)\n'
-for num in $SELECTED; do
-    i=1
-    while IFS='|' read -r label func; do
-        [ -z "$label" ] && continue
-        if [ "$i" -eq "$num" ]; then
-            printf '  - %s: đã cài\n' "$label"
-            break
-        fi
-        i=$((i + 1))
-    done <<EOF
-$MENU_ITEMS
-EOF
-done
+[ -n "$SETUP_SELECTED" ] && printf '  - Các item đã chọn: %s\n' "$SETUP_SELECTED"

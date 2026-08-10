@@ -1,6 +1,9 @@
 #!/bin/sh
-# install-basic-dev-tools.sh — Cài các công cụ dev cơ bản: Node.js (NodeSource LTS)
-# Chạy: sudo ./install-basic-dev-tools.sh
+# @setup-description: Cài bộ công cụ phát triển cơ bản
+# @setup-when: always
+# @setup-core-description: Cài Node.js LTS từ NodeSource
+# 4-install-basic-dev-works.sh — Cài các công cụ dev cơ bản: Node.js (NodeSource LTS)
+# Chạy: sudo ./4-install-basic-dev-works.sh
 
 set -e
 
@@ -11,6 +14,15 @@ info() { printf '\033[1;34m[dev-tools]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m        %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m      %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m     %s\n' "$*" >&2; exit 1; }
+
+CHILD_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CHILD_FILE="$CHILD_DIR/$(basename -- "$0")"
+. "$CHILD_DIR/../lib/setup-contract.sh"
+setup_child_prepare "$CHILD_FILE" "$@" || exit $?
+if [ "$SETUP_SHOW_HELP" -eq 1 ]; then
+    setup_print_help "$CHILD_FILE"
+    exit 0
+fi
 
 wait_apt() {
     _i=0

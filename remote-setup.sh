@@ -11,15 +11,15 @@
 # (Cách cũ vẫn hoạt động: curl ... | sudo sh, hoặc sudo sh remote-setup.sh)
 #
 # Tham số:
-#   --basic   chỉ chạy setup-basic-ubuntu-based.sh, không chạy setup-all
+#   --basic   chỉ chạy atom scripts, không chạy extras
 #   --dev     tải và chạy source từ nhánh dev thay vì main
-#   --silent  không hiện menu tương tác, tự chọn tất cả (truyền xuống script con)
+#   --all     không hiện menu tương tác, tự chọn tất cả
+#   --silent  như --all và truyền --all xuống script con
 #
 # Cách hoạt động:
 #   1. Tải tarball repo về /tmp (không cần clone tay, không cần git, không cần root)
 #   2. Git không lưu quyền execute → chmod +x toàn bộ script
-#   3. Tự gọi sudo (nếu chưa root) để chạy setup-all-ubuntu-based.sh (mặc định)
-#      hoặc setup-basic-ubuntu-based.sh với arg --basic (SUDO_USER giữ nguyên)
+#   3. Tự gọi sudo (nếu chưa root) để chạy setup-ubuntu-based.sh với các cờ đã chọn
 #   4. Tự xóa toàn bộ file tạm trong /tmp khi kết thúc (kể cả khi lỗi giữa chừng)
 
 set -e
@@ -51,30 +51,43 @@ trap 'cleanup noprompt' EXIT
 trap 'cleanup noprompt; exit 130' INT
 trap 'cleanup noprompt; exit 143' TERM
 
-# --- Đọc tham số: --basic → chỉ chạy setup-basic; --dev → tải nhánh dev; --silent → không tương tác ---
-SETUP="setup-all-ubuntu-based.sh"
-SILENT=""
+# --- Đọc tham số remote và gom cờ truyền xuống entrypoint thống nhất ---
+SETUP="setup-ubuntu-based.sh"
+BASIC=0
+ALL=0
+SILENT=0
+SHOW_HELP=0
 for arg in "$@"; do
     case "$arg" in
-        --basic)  SETUP="setup-basic-ubuntu-based.sh" ;;
+        --basic)  BASIC=1 ;;
         --dev)    BRANCH="dev" ;;
-        --silent) SILENT="--silent" ;;
-        --help|-h)
-            echo "Usage: curl -fsSL <url>/remote-setup.sh | sh"
-            echo "       curl -fsSL <url>/remote-setup.sh | sh -s -- [opts]"
-            echo ""
-            echo "  (không đối số)  Chạy setup-all-ubuntu-based.sh (tương tác)"
-            echo "  --basic         Chỉ chạy setup-basic-ubuntu-based.sh"
-            echo "  --dev           Tải và chạy source từ nhánh dev thay vì main"
-            echo "  --silent        Không tương tác, truyền --silent xuống script con"
-            echo "  --help, -h      In trợ giúp này"
-            echo ""
-            echo "  Không cần sudo ở ngoài — script tự gọi sudo khi chạy phần cài đặt."
-            echo "  Cách cũ (curl ... | sudo sh) vẫn hoạt động."
-            exit 0
-            ;;
+        --all|-a) ALL=1 ;;
+        --silent) SILENT=1 ;;
+        --help|-h) SHOW_HELP=1 ;;
+        *) die "Không rõ tuỳ chọn: $arg" ;;
     esac
 done
+
+if [ "$SHOW_HELP" -eq 1 ]; then
+    echo "Usage: curl -fsSL <url>/remote-setup.sh | sh"
+    echo "       curl -fsSL <url>/remote-setup.sh | sh -s -- [opts]"
+    echo ""
+    echo "  (không đối số)  Chạy setup-ubuntu-based.sh với menu động"
+    echo "  --basic         Chỉ chạy atom scripts, bỏ qua extras"
+    echo "  --dev           Tải và chạy source từ nhánh dev thay vì main"
+    echo "  --all, -a       Không tương tác, chọn toàn bộ"
+    echo "  --silent        Như --all và truyền --all xuống script con"
+    echo "  --help, -h      In trợ giúp này"
+    echo ""
+    echo "  Không cần sudo ở ngoài — script tự gọi sudo khi chạy phần cài đặt."
+    echo "  Cách cũ (curl ... | sudo sh) vẫn hoạt động."
+    exit 0
+fi
+
+SETUP_ARGS=""
+[ "$BASIC" -eq 0 ] || SETUP_ARGS="$SETUP_ARGS --basic"
+[ "$ALL" -eq 0 ] || SETUP_ARGS="$SETUP_ARGS --all"
+[ "$SILENT" -eq 0 ] || SETUP_ARGS="$SETUP_ARGS --silent"
 
 DEST="/tmp/linux-post-install-scripts-$BRANCH"
 
@@ -116,12 +129,12 @@ run_setup() {
     fi
 }
 
-info "Chạy $SETUP${SILENT:+ (silent)}..."
+info "Chạy $SETUP${SETUP_ARGS:+ với:$SETUP_ARGS}..."
 if [ "$(id -u)" -eq 0 ]; then
-    run_setup "$DEST/$SETUP" $SILENT || die "$SETUP thất bại — xem log phía trên"
+    run_setup "$DEST/$SETUP" $SETUP_ARGS || die "$SETUP thất bại — xem log phía trên"
 else
     info "Chưa phải root — tự gọi sudo (không cần 'curl | sudo sh')..."
-    run_setup sudo "$DEST/$SETUP" $SILENT || die "$SETUP thất bại — xem log phía trên"
+    run_setup sudo "$DEST/$SETUP" $SETUP_ARGS || die "$SETUP thất bại — xem log phía trên"
 fi
 
 ok "Xong! File tạm trong /tmp đã được tự động xóa. Khởi động lại máy để áp dụng."
