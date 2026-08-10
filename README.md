@@ -32,13 +32,13 @@ Basic setup:
 command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic --silent
 ```
 
-Dev branch:
+Setup with options (menu tương tác):
 
 ```bash
 command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh
 ```
 
-Setup with options (menu tương tác):
+Dev branch:
 
 ```bash
 command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/dev/remote-setup.sh | sh -s -- --dev
