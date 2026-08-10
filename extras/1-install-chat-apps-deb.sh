@@ -1,9 +1,9 @@
 #!/bin/sh
 # @setup-description: Cài chat apps (Mattermost, Slack, Discord,...)
 # @setup-when: always
-# @setup-item: install_slack|Slack (repo chính thức packagecloud)
-# @setup-item: install_mattermost|Mattermost Desktop (.deb từ GitHub releases)
-# @setup-item: install_discord|Discord (.deb từ discord.com)
+# @setup-item: install_slack|Slack
+# @setup-item: install_mattermost|Mattermost Desktop
+# @setup-item: install_discord|Discord
 # 1-install-chat-apps-deb.sh — Ubuntu/Debian: cài Slack, Mattermost, Discord bản .deb
 # Chạy: sudo ./1-install-chat-apps-deb.sh [--all|-a|item-number ...]
 
