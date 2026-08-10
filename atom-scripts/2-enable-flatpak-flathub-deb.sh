@@ -43,6 +43,40 @@ wait_apt() {
     sleep 2
 }
 
+detect_desktop() {
+    DESKTOP=${XDG_CURRENT_DESKTOP:-}
+    if [ -z "$DESKTOP" ] && [ -n "${SUDO_USER:-}" ] && command -v pgrep >/dev/null 2>&1; then
+        if pgrep -u "$SUDO_USER" -x gnome-shell >/dev/null 2>&1; then
+            DESKTOP=GNOME
+        elif pgrep -u "$SUDO_USER" -x plasmashell >/dev/null 2>&1; then
+            DESKTOP=KDE
+        fi
+    fi
+}
+
+install_gui_backend() {
+    info "Bước 4: Cài plugin hiển thị flatpak trong App Center..."
+    case "$DESKTOP" in
+        *GNOME*)
+            if apt-get install -y gnome-software-plugin-flatpak; then
+                ok "Đã cài plugin cho GNOME Software"
+            else
+                warn "Không cài được plugin Flatpak cho GNOME Software — vẫn dùng Flatpak qua CLI được"
+            fi
+            ;;
+        *KDE*|*Plasma*)
+            if apt-get install -y plasma-discover-backend-flatpak; then
+                ok "Đã cài backend cho KDE Discover"
+            else
+                warn "Không cài được backend Flatpak cho KDE Discover — vẫn dùng Flatpak qua CLI được"
+            fi
+            ;;
+        *)
+            warn "Không nhận diện được desktop (${DESKTOP:-trống}) — bỏ qua plugin GUI"
+            ;;
+    esac
+}
+
 # --- Kiểm tra quyền root ---
 [ "$(id -u)" -eq 0 ] || die "Phải chạy với quyền root: sudo $0"
 
@@ -62,20 +96,8 @@ flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.f
 ok "Đã thêm kho Flathub"
 
 # --- Bước 4: Plugin tích hợp vào App Center theo desktop environment ---
-info "Bước 4: Cài plugin hiển thị flatpak trong App Center..."
-case "$XDG_CURRENT_DESKTOP" in
-    *GNOME*)
-        apt-get install -y gnome-software-plugin-flatpak || true
-        ok "Đã cài plugin cho GNOME Software"
-        ;;
-    *KDE*|*Plasma*)
-        apt-get install -y plasma-discover-backend-flatpak || true
-        ok "Đã cài backend cho KDE Discover"
-        ;;
-    *)
-        warn "Không nhận diện được desktop ($XDG_CURRENT_DESKTOP) — bỏ qua plugin GUI"
-        ;;
-esac
+detect_desktop
+install_gui_backend
 
 # --- Bước 5: Kiểm tra ---
 info "Bước 5: Kiểm tra cấu hình..."

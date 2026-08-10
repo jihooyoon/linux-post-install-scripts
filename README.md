@@ -24,19 +24,18 @@ Scripts for configuring Linux distros after clean install
 
 #### Pre-defined Packs (chọn sẵn, hoàn toàn auto):
 
-*Pack MS:* <br>
+*Pack MS:*
 Đầy đủ cho MS, bao gồm OnlyOffice và các lựa chọn còn lại
-
 ```bash
 command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --pack-ms
 ```
 
-*Pack BS:*<br>
-Cơ bản, phù hợp cho BS, chỉ bao gồm De-bloat, bộ gõ, OnlyOffice, Chrome, Mattermost, và Claude Desktop
-
+*Pack BS:*
+Cơ bản, phù hợp cho BS, chỉ bao gồm bộ gõ, OnlyOffice, Chrome, Mattermost, và Claude Desktop
 ```bash
-command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --pack-bs
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --pack-bs --keep-snap
 ```
+
 
 #### Setup tuỳ chỉnh (có menu để bật/tắt từng hạng mục):
 
@@ -45,7 +44,6 @@ command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install 
 ```
 
 *Dev branch:*
-
 ```bash
 command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/dev/remote-setup.sh | sh -s -- --dev
 ```
@@ -56,39 +54,38 @@ command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install 
 
 *Tham số `remote-setup.sh`:*
 
-| Tham số           | Mô tả                                                                      |
-| ------------------ | ---------------------------------------------------------------------------- |
-| *(không)*       | Chạy`setup-ubuntu-based.sh` với menu động và review trước execution |
-| `--dev`          | Tải và chạy source từ nhánh`dev` thay vì `main`                    |
-| `--all`, `-a`  | Không hiện menu, tự chọn tất cả                                        |
-| `--pack-ms`      | Chọn OnlyOffice; các script và item khác chọn tất cả                  |
-| `--pack-bs`      | Chọn OnlyOffice, Chrome, Mattermost, IME và Claude Desktop        |
-| `--help`, `-h` | In trợ giúp                                                                |
+| Tham số           | Mô tả                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| *(không)*       | Chạy `setup-ubuntu-based.sh` với menu động và review trước execution                |
+| `--dev`          | Tải và chạy source từ nhánh`dev` thay vì `main`                                   |
+| `--all`, `-a`  | Không hiện menu, tự chọn tất cả                                                       |
+| `--pack-ms`      | Chọn OnlyOffice; các script và item khác chọn tất cả                                 |
+| `--pack-bs`      | Chọn OnlyOffice, Chrome, Mattermost, IME và Claude Desktop                                |
+| `--keep-snap`    | Giữ Snap, bỏ bước De-snap (atom 1) trên Ubuntu và các flavors (VD Kubuntu, tạm check bằng non-Tuxedo); dùng được cùng các pack |
+| `--help`, `-h` | In trợ giúp                                                                               |
 
 *Debug mode:* Thêm `DEBUG=1` trước `sh` để thấy tất cả lệnh đang chạy:
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | DEBUG=1 sh
 ```
 
 *Cơ chế remote setup:*
-
 > `remote-setup.sh` tự tải repo về `/tmp`, cấp quyền execute, rồi tự gọi `sudo` để chạy entrypoint thống nhất `setup-ubuntu-based.sh`. Ngoài `--dev` (chỉ chọn branch source), mọi argument được passthrough sang entrypoint; `DEBUG=1` được giữ khi đi qua `sudo`. File tạm luôn được dọn khi kết thúc. Khi chạy qua pipe (`curl | sh`), stdin của parent được nối với terminal thật để menu nhận input.
 
 ### Manual setup: Clone repo rồi chạy tay:
 
 - Cần chmod để cấp quyền run cho các file script
 - Chạy `sudo ./setup-ubuntu-based.sh` để chọn atom items và extras qua menu động
-- Dùng `sudo ./setup-ubuntu-based.sh --all`, `--pack-ms` hoặc `--pack-bs` để chạy không tương tác
+- Dùng `sudo ./setup-ubuntu-based.sh --all`, `--pack-ms` hoặc `--pack-bs` để chạy không tương tác; thêm `--keep-snap` để giữ Snap và bỏ atom De-snap trên máy non-Tuxedo
 - Các scripts con cũng có thể chạy độc lập, tuy nhiên đa phần scripts phục vụ nhu cầu chạy độc lập sẽ nằm trong `extras`, các scripts trong `atom-scripts` gần như luôn cần
 
 **CLI của parent và script con:**
 
-| Phạm vi                  | Tham số hỗ trợ                                            |
-| ------------------------- | ------------------------------------------------------------ |
-| `setup-ubuntu-based.sh` | `--all`, `-a`, `--pack-ms`, `--pack-bs`, `--help`  |
-| Child có item            | `--all`, `-a`, một hoặc nhiều item number, `--help` |
-| Child chỉ có core       | Không argument hoặc`--all`, `--help`                   |
+| Phạm vi                  | Tham số hỗ trợ                                                            |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `setup-ubuntu-based.sh` | `--all`, `-a`, `--pack-ms`, `--pack-bs`, `--keep-snap`, `--help` |
+| Child có item            | `--all`, `-a`, một hoặc nhiều item number, `--help`                 |
+| Child chỉ có core       | Không argument hoặc `--all`, `--help`                                   |
 
 > Chỉ parent có menu. Child không argument sẽ chạy core nếu có; child không có core sẽ warning rồi no-op. Parent tiếp tục các script còn lại khi một child lỗi và trả non-zero tổng hợp ở cuối.
 

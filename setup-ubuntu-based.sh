@@ -19,12 +19,13 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 print_help() {
     cat <<EOF
-Usage: sudo $0 [--all|-a|--pack-ms|--pack-bs] [--help|-h]
+Usage: sudo $0 [--all|-a|--pack-ms|--pack-bs] [--keep-snap] [--help|-h]
 
   (không đối số)  Mở menu động, review rồi chạy
   --all, -a       Chọn toàn bộ atom items và extras, không hiện menu
   --pack-ms       Chọn OnlyOffice; các script và item khác chọn tất cả
   --pack-bs       Preset cơ bản: OnlyOffice, Chrome, Mattermost, shortcut IME và Claude Desktop
+  --keep-snap     Giữ Snap, bỏ De-snap (atom 1) trên máy non-Tuxedo
   --help, -h      In trợ giúp này
 
 Chỉ được dùng một preset: --all/-a, --pack-ms hoặc --pack-bs.
@@ -33,11 +34,13 @@ EOF
 
 PRESET=""
 SHOW_HELP=0
+KEEP_SNAP=0
 for arg in "$@"; do
     case "$arg" in
         --all|-a) _preset=all ;;
         --pack-ms) _preset=pack-ms ;;
         --pack-bs) _preset=pack-bs ;;
+        --keep-snap) KEEP_SNAP=1 ;;
         --help|-h) SHOW_HELP=1 ;;
         *) die "Không rõ tuỳ chọn: $arg. Dùng --help để xem hướng dẫn." ;;
     esac
@@ -71,11 +74,13 @@ trap 'cleanup_state; exit 130' INT
 trap 'cleanup_state; exit 143' TERM
 
 ATOM_MANIFEST="$STATE_DIR/atoms.manifest"
+ATOM_SKIPPED_FILE="$STATE_DIR/atoms.skipped"
 EXTRA_MANIFEST="$STATE_DIR/extras.manifest"
 STATUS_FILE="$STATE_DIR/status"
 STAGES_FILE="$STATE_DIR/stages"
 EXTRA_SELECTED_FILE="$STATE_DIR/extras.selected"
 : > "$ATOM_MANIFEST"
+: > "$ATOM_SKIPPED_FILE"
 : > "$EXTRA_MANIFEST"
 : > "$STATUS_FILE"
 : > "$EXTRA_SELECTED_FILE"
@@ -170,6 +175,23 @@ if ! awk -F'|' '$1 == 1 { found=1 } END { exit !found }' "$ATOM_MANIFEST"; then
     record_status FAILED "$(status_fallback_description atom 1)" "không có Tuxedo/non-Tuxedo variant phù hợp"
 fi
 scan_directory extra "$EXTRA_DIR" "$EXTRA_MANIFEST"
+
+mark_atom_skipped() {
+    _slot=$1
+    _reason=$2
+    awk -F'|' -v slot="$_slot" '$1 == slot { found=1 } END { exit !found }' "$ATOM_SKIPPED_FILE" \
+        || printf '%s|%s\n' "$_slot" "$_reason" >> "$ATOM_SKIPPED_FILE"
+}
+
+atom_skip_reason() {
+    _slot=$1
+    awk -F'|' -v slot="$_slot" '$1 == slot { print $2; exit }' "$ATOM_SKIPPED_FILE"
+}
+
+if [ "$KEEP_SNAP" -eq 1 ] && [ "$IS_TUXEDO" -eq 0 ] && \
+   awk -F'|' '$1 == 1 { found=1 } END { exit !found }' "$ATOM_MANIFEST"; then
+    mark_atom_skipped 1 "--keep-snap"
+fi
 
 selection_file() {
     printf '%s/%s-%s.selection\n' "$STATE_DIR" "$1" "$2"
@@ -444,6 +466,13 @@ print_script_review() {
     _labels=$(selection_labels "$_file" "$_selection")
 
     printf '  \033[97m%s. %s\033[0m\n' "$_slot" "$_description"
+    if [ "$_kind" = atom ]; then
+        _skip_reason=$(atom_skip_reason "$_slot")
+        if [ -n "$_skip_reason" ]; then
+            printf '     \033[90mSkipped: %s\033[0m\n' "$_skip_reason"
+            return
+        fi
+    fi
     [ -z "$_core" ] || printf '     \033[90mCore: %s\033[0m\n' "$_core"
     if [ "$_count" -gt 0 ]; then
         if [ -n "$_labels" ]; then
@@ -592,6 +621,11 @@ run_child() {
 execute_plan() {
     while IFS='|' read -r _slot _file _description _core _count; do
         [ -n "$_slot" ] || continue
+        _skip_reason=$(atom_skip_reason "$_slot")
+        if [ -n "$_skip_reason" ]; then
+            record_status SKIPPED "$_description" "$_skip_reason"
+            continue
+        fi
         _args=$(get_selection atom "$_slot")
         run_child atom "$_slot" "$_file" "$_description" "$_args"
     done < "$ATOM_MANIFEST"

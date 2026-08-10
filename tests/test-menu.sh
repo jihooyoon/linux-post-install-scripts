@@ -92,6 +92,7 @@ else
 fi
 
 IME_FILE="$ROOT/atom-scripts/3-setup-ime-deb.sh"
+FLATPAK_FILE="$ROOT/atom-scripts/2-enable-flatpak-flathub-deb.sh"
 OFFICE_FILE="$ROOT/atom-scripts/4-setup-office-deb.sh"
 BASIC_FILE="$ROOT/atom-scripts/5-install-basic-apps-deb.sh"
 if setup_child_prepare "$OFFICE_FILE" --all && \
@@ -122,6 +123,60 @@ awk '/^install_onlyoffice\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/install-onlyoff
 awk '/^install_libreoffice\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/install-libreoffice.fn"
 awk '/^prepare_apt\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/office-prepare-apt.fn"
 awk '/^prepare_apt\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/basic-prepare-apt.fn"
+awk '/^detect_desktop\(\)/,/^}/' "$FLATPAK_FILE" > "$TMP_TEST/flatpak-detect-desktop.fn"
+awk '/^install_gui_backend\(\)/,/^}/' "$FLATPAK_FILE" > "$TMP_TEST/flatpak-install-gui-backend.fn"
+
+if (
+    . "$TMP_TEST/flatpak-detect-desktop.fn"
+    pgrep() { return 0; }
+    XDG_CURRENT_DESKTOP=""
+    SUDO_USER=tester
+    detect_desktop
+    [ "$DESKTOP" = "GNOME" ]
+); then
+    pass "Flatpak nhận diện GNOME qua session khi XDG rỗng"
+else
+    fail "Flatpak nhận diện GNOME qua session khi XDG rỗng"
+fi
+
+FLATPAK_STUB_BIN="$TMP_TEST/flatpak-stubs"
+mkdir -p "$FLATPAK_STUB_BIN"
+printf '#!/bin/sh\nexit 0\n' > "$FLATPAK_STUB_BIN/apt-get"
+chmod +x "$FLATPAK_STUB_BIN/apt-get"
+
+if (
+    . "$TMP_TEST/flatpak-install-gui-backend.fn"
+    info() { :; }
+    ok() { printf 'ok:%s\n' "$*"; }
+    warn() { printf 'warn:%s\n' "$*"; }
+    PATH="$FLATPAK_STUB_BIN:$PATH"
+    DESKTOP=GNOME
+    install_gui_backend
+) > "$TMP_TEST/flatpak-plugin-ok.out" 2>&1; then
+    pass "Flatpak báo thành công khi plugin GNOME cài được"
+else
+    fail "Flatpak báo thành công khi plugin GNOME cài được"
+fi
+assert_contains "$TMP_TEST/flatpak-plugin-ok.out" "ok:Đã cài plugin cho GNOME Software" \
+    "Flatpak không cảnh báo lỗi khi plugin GNOME cài được"
+
+printf '#!/bin/sh\nexit 1\n' > "$FLATPAK_STUB_BIN/apt-get"
+
+if (
+    . "$TMP_TEST/flatpak-install-gui-backend.fn"
+    info() { :; }
+    ok() { printf 'ok:%s\n' "$*"; }
+    warn() { printf 'warn:%s\n' "$*"; }
+    PATH="$FLATPAK_STUB_BIN:$PATH"
+    DESKTOP=GNOME
+    install_gui_backend
+) > "$TMP_TEST/flatpak-plugin-failure.out" 2>&1; then
+    pass "Flatpak tiếp tục khi plugin GNOME cài lỗi"
+else
+    fail "Flatpak tiếp tục khi plugin GNOME cài lỗi"
+fi
+assert_contains "$TMP_TEST/flatpak-plugin-failure.out" "warn:Không cài được plugin Flatpak cho GNOME Software" \
+    "Flatpak cảnh báo chính xác khi plugin GNOME cài lỗi"
 
 run_office_case() {
     _selection=$1
@@ -219,6 +274,25 @@ assert_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "non-Tuxedo variant
 assert_not_contains "$TMP_TEST/execution.log" "1-tuxedo.sh|" "Tuxedo variant không chạy trên non-Tuxedo"
 assert_not_contains "$TMP_TEST/execution.log" "1-items.sh|" "extra không core và không item bị loại execution"
 
+OUT="$TMP_TEST/keep-snap-interactive.out"
+if run_parent 's\n1\ns\nr\n' "$OUT" --keep-snap; then
+    pass "--keep-snap chạy tương tác thành công"
+else
+    fail "--keep-snap chạy tương tác thành công"
+fi
+assert_contains "$OUT" "Skipped: --keep-snap" "review hiển thị atom 1 bị skip"
+assert_contains "$OUT" "Non-Tuxedo variant — --keep-snap" "summary ghi lý do skip keep-snap"
+assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "--keep-snap không chạy atom 1 non-Tuxedo"
+assert_contains "$TMP_TEST/execution.log" "2-core.sh|" "--keep-snap vẫn chạy atom 2"
+
+OUT="$TMP_TEST/keep-snap-tuxedo.out"
+if SETUP_TEST_TUXEDO_VALUE=1 run_parent 's\n1\ns\nr\n' "$OUT" --keep-snap; then
+    pass "--keep-snap không lỗi trên Tuxedo"
+else
+    fail "--keep-snap không lỗi trên Tuxedo"
+fi
+assert_contains "$TMP_TEST/execution.log" "1-tuxedo.sh|" "--keep-snap không skip atom 1 Tuxedo"
+
 OUT="$TMP_TEST/back.out"
 if run_parent '1\nb\ns\ns\nr\n' "$OUT"; then
     pass "Back quay lại và cho phép thay selection"
@@ -250,6 +324,15 @@ assert_contains "$TMP_TEST/execution.log" "2-dev.sh|" "--all enable Dev Tools co
 assert_not_contains "$TMP_TEST/execution.log" "2-dev.sh|--all" "--all không truyền argument cho extra core-only"
 assert_contains "$TMP_TEST/execution.log" "4-ai.sh|--all" "--all chọn toàn bộ AI"
 
+OUT="$TMP_TEST/preset-all-keep-snap.out"
+if run_preset "$OUT" --all --keep-snap; then
+    pass "--keep-snap hoạt động cùng --all"
+else
+    fail "--keep-snap hoạt động cùng --all"
+fi
+assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "--all --keep-snap skip atom 1"
+assert_contains "$TMP_TEST/execution.log" "2-flatpak.sh|" "--all --keep-snap vẫn chạy atom 2"
+
 OUT="$TMP_TEST/preset-ms.out"
 if run_preset "$OUT" --pack-ms; then
     pass "--pack-ms chạy không tương tác"
@@ -262,6 +345,15 @@ assert_not_contains "$TMP_TEST/execution.log" "4-office.sh|--all" "--pack-ms kh�
 assert_contains "$TMP_TEST/execution.log" "5-basic-apps.sh|--all" "--pack-ms chọn toàn bộ Basic Apps"
 assert_contains "$TMP_TEST/execution.log" "1-chat.sh|--all" "--pack-ms chọn toàn bộ Chat"
 assert_contains "$TMP_TEST/execution.log" "4-ai.sh|--all" "--pack-ms chọn toàn bộ AI"
+
+OUT="$TMP_TEST/preset-ms-keep-snap.out"
+if run_preset "$OUT" --pack-ms --keep-snap; then
+    pass "--keep-snap hoạt động cùng --pack-ms"
+else
+    fail "--keep-snap hoạt động cùng --pack-ms"
+fi
+assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "--pack-ms --keep-snap skip atom 1"
+assert_contains "$TMP_TEST/execution.log" "2-flatpak.sh|" "--pack-ms --keep-snap vẫn chạy atom 2"
 
 OUT="$TMP_TEST/preset-bs.out"
 if run_preset "$OUT" --pack-bs; then
@@ -278,6 +370,15 @@ assert_not_contains "$TMP_TEST/execution.log" "2-dev.sh|" "--pack-bs skip Dev To
 assert_contains "$TMP_TEST/execution.log" "3-ime-shortcut.sh|" "--pack-bs enable shortcut IME"
 assert_contains "$TMP_TEST/execution.log" "4-ai.sh|1" "--pack-bs chọn Claude Desktop"
 
+OUT="$TMP_TEST/preset-bs-keep-snap.out"
+if run_preset "$OUT" --pack-bs --keep-snap; then
+    pass "--keep-snap hoạt động cùng --pack-bs"
+else
+    fail "--keep-snap hoạt động cùng --pack-bs"
+fi
+assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "--pack-bs --keep-snap skip atom 1"
+assert_contains "$TMP_TEST/execution.log" "2-flatpak.sh|" "--pack-bs --keep-snap vẫn chạy atom 2"
+
 OUT="$TMP_TEST/preset-invalid.out"
 if run_preset "$OUT" --all --pack-ms; then
     fail "preset trộn phải bị reject"
@@ -293,7 +394,7 @@ else
 fi
 assert_contains "$OUT" "Chỉ được dùng một preset" "preset lặp báo lỗi rõ ràng"
 
-for removed_flag in --basic --silent --dev; do
+for removed_flag in --basic --silent --dev --no-debloat; do
     OUT="$TMP_TEST/removed-${removed_flag#--}.out"
     if run_preset "$OUT" "$removed_flag"; then
         fail "$removed_flag phải bị reject"
@@ -302,6 +403,14 @@ for removed_flag in --basic --silent --dev; do
     fi
     assert_contains "$OUT" "Không rõ tuỳ chọn" "$removed_flag báo lỗi unknown option"
 done
+
+OUT="$TMP_TEST/help.out"
+if run_preset "$OUT" --help; then
+    pass "--help chạy thành công"
+else
+    fail "--help chạy thành công"
+fi
+assert_contains "$OUT" "--keep-snap     Giữ Snap" "--help mô tả --keep-snap"
 
 REMOTE_FILE="$ROOT/remote-setup.sh"
 assert_contains "$REMOTE_FILE" '--dev) BRANCH="dev" ;;' "remote chỉ tách --dev để chọn branch"
