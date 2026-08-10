@@ -2,8 +2,8 @@
 # @setup-description: Cài môi trường dev/test (Node.js)
 # @setup-when: always
 # @setup-core-description: Cài Node.js
-# 4-install-basic-dev-works.sh — Cài các công cụ dev cơ bản: Node.js (NodeSource LTS)
-# Chạy: sudo ./4-install-basic-dev-works.sh
+# 2-install-basic-dev-works.sh — Cài các công cụ dev cơ bản: Node.js (NodeSource LTS)
+# Chạy: sudo ./2-install-basic-dev-works.sh
 
 set -e
 

@@ -4,8 +4,8 @@
 # @setup-item: install_claude_desktop|Claude Desktop
 # @setup-item: install_claude_cli|Claude Code CLI
 # @setup-item: install_codex_cli|Codex CLI
-# 1-install-ai-tools-deb.sh — Cài Claude Desktop (apt repo), Claude Code CLI, Codex CLI
-# Chạy: sudo ./1-install-ai-tools-deb.sh [--all|-a|item-number ...]
+# 4-install-ai-tools-deb.sh — Cài Claude Desktop (apt repo), Claude Code CLI, Codex CLI
+# Chạy: sudo ./4-install-ai-tools-deb.sh [--all|-a|item-number ...]
 # Yêu cầu: Ubuntu 22.04+ / Debian 12+, kiến trúc amd64 hoặc arm64
 
 set -e

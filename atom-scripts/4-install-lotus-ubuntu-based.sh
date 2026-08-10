@@ -95,7 +95,7 @@ fi
 # lý input method qua kwinrc (mục "Virtual Keyboard" trong System Settings, xem
 # Bước 6b) và tự đặt biến môi trường — set tay bị cảnh báo, đẩy app vào nhánh XIM.
 # Chạy qua sudo nên XDG_CURRENT_DESKTOP thường bị reset (rỗng) — fallback đoán
-# theo process của session đồ họa đang chạy của user (giống 2-set-ime-shortcut.sh)
+# theo process của session đồ họa đang chạy của user (giống 3-set-ime-shortcut.sh)
 DESKTOP=$XDG_CURRENT_DESKTOP
 if [ -z "$DESKTOP" ]; then
     pgrep -u "$SUDO_USER" -x gnome-shell >/dev/null 2>&1 && DESKTOP=GNOME

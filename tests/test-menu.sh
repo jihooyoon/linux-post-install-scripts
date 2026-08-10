@@ -158,7 +158,7 @@ for command_name in apt-get curl gpg; do
 done
 
 if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
-    sh "$ROOT/extras/1-install-ai-tools-deb.sh" > "$TMP_TEST/ai-empty.out" 2>&1 && \
+    sh "$ROOT/extras/4-install-ai-tools-deb.sh" > "$TMP_TEST/ai-empty.out" 2>&1 && \
    [ ! -s "$TMP_TEST/side-effects.log" ]; then
     pass "AI no-argument không gọi apt/curl/gpg"
 else
@@ -167,15 +167,15 @@ fi
 
 : > "$TMP_TEST/side-effects.log"
 if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
-    sh "$ROOT/extras/3-install-chat-apps-deb.sh" > "$TMP_TEST/chat-empty.out" 2>&1 && \
+    sh "$ROOT/extras/1-install-chat-apps-deb.sh" > "$TMP_TEST/chat-empty.out" 2>&1 && \
    [ ! -s "$TMP_TEST/side-effects.log" ]; then
     pass "Chat no-argument không gọi apt/curl/gpg"
 else
     fail "Chat no-argument không gọi apt/curl/gpg"
 fi
 
-AI_FILE="$ROOT/extras/1-install-ai-tools-deb.sh"
-CHAT_FILE="$ROOT/extras/3-install-chat-apps-deb.sh"
+AI_FILE="$ROOT/extras/4-install-ai-tools-deb.sh"
+CHAT_FILE="$ROOT/extras/1-install-chat-apps-deb.sh"
 awk '/^install_claude_desktop\(\)/,/^}/' "$AI_FILE" > "$TMP_TEST/claude-desktop.fn"
 awk '/^install_claude_cli\(\)/,/^}/' "$AI_FILE" > "$TMP_TEST/claude-cli.fn"
 awk '/^install_codex_cli\(\)/,/^}/' "$AI_FILE" > "$TMP_TEST/codex.fn"
