@@ -32,8 +32,9 @@ Script con không còn menu và không đọc `/dev/tty`.
 
 ### Atom scripts
 
-- De-snap, Tuxedo generalization, Flatpak/Flathub và Lotus: toàn bộ logic hiện tại là core.
-- Basic Apps: apt update, fcitx5, purge ibus và autostart là core; FreeOffice, LibreOffice, Chrome, Chromium và VS Code là item.
+- De-snap, Tuxedo generalization, Flatpak/Flathub, IME (fcitx5) và Lotus: toàn bộ logic hiện tại là core.
+- Office: FreeOffice và LibreOffice là item; khi chỉ chọn một bộ thì gỡ best-effort bộ còn lại.
+- Basic Apps: Chrome, Chromium và VS Code là item; không có core.
 
 ### Extras
 
@@ -59,8 +60,10 @@ Atom scripts dùng order slot:
 
 1. De-snap (`when=non-tuxedo`) và Tuxedo generalization (`when=tuxedo`) cùng prefix `1-`.
 2. Flatpak/Flathub.
-3. Basic Apps.
-4. Lotus.
+3. IME (fcitx5).
+4. Office.
+5. Basic Apps.
+6. Lotus.
 
 Extras đánh số độc lập theo thứ tự hiện tại: `1` AI Tools, `2` IME Shortcut, `3` Chat Apps, `4` Dev Tools.
 

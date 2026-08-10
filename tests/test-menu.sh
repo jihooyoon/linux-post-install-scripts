@@ -78,18 +78,36 @@ else
     fail "xóa item tự cập nhật range"
 fi
 
-BASIC_FILE="$ROOT/atom-scripts/3-install-basic-apps-deb.sh"
-if setup_child_prepare "$BASIC_FILE" --all && \
-   [ "$SETUP_SELECTED" = "1 2 3 4 5" ]; then
-    pass "Basic Apps --all chọn đủ năm item"
+IME_FILE="$ROOT/atom-scripts/3-setup-ime-deb.sh"
+OFFICE_FILE="$ROOT/atom-scripts/4-setup-office-deb.sh"
+BASIC_FILE="$ROOT/atom-scripts/5-install-basic-apps-deb.sh"
+if setup_child_prepare "$OFFICE_FILE" --all && \
+   [ "$SETUP_SELECTED" = "1 2" ]; then
+    pass "Office --all chọn đủ hai item"
 else
-    fail "Basic Apps --all chọn đủ năm item"
+    fail "Office --all chọn đủ hai item"
 fi
 
-awk '/^run_best_effort\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/run-best-effort.fn"
-awk '/^reconcile_office_selection\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/reconcile-office.fn"
-awk '/^run_selected_best_effort\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/run-selected-best-effort.fn"
-awk '/^install_libreoffice\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/install-libreoffice.fn"
+if setup_child_prepare "$BASIC_FILE" --all && \
+   [ "$SETUP_SELECTED" = "1 2 3" ]; then
+    pass "Basic Apps --all chọn đủ ba item"
+else
+    fail "Basic Apps --all chọn đủ ba item"
+fi
+
+if [ "$(setup_item_count "$IME_FILE")" -eq 0 ] && \
+   [ -n "$(setup_core_description "$IME_FILE")" ]; then
+    pass "IME là script core-only"
+else
+    fail "IME là script core-only"
+fi
+
+awk '/^run_best_effort\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/run-best-effort.fn"
+awk '/^reconcile_office_selection\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/reconcile-office.fn"
+awk '/^run_selected_best_effort\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/run-selected-best-effort.fn"
+awk '/^install_libreoffice\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/install-libreoffice.fn"
+awk '/^prepare_apt\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/office-prepare-apt.fn"
+awk '/^prepare_apt\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/basic-prepare-apt.fn"
 
 run_office_case() {
     _selection=$1
@@ -128,6 +146,10 @@ else
 fi
 assert_contains "$TMP_TEST/office-purge-failure.out" "exit 9" "lỗi purge Office được cảnh báo"
 assert_contains "$TMP_TEST/install-libreoffice.fn" "apt-get install -y libreoffice" "LibreOffice dùng repo mặc định"
+assert_contains "$TMP_TEST/office-prepare-apt.fn" "wait_apt" "Office đợi apt lock trước khi cài"
+assert_contains "$TMP_TEST/office-prepare-apt.fn" "apt-get update" "Office cập nhật apt cache trước khi cài"
+assert_contains "$TMP_TEST/basic-prepare-apt.fn" "wait_apt" "Basic Apps đợi apt lock trước khi cài"
+assert_contains "$TMP_TEST/basic-prepare-apt.fn" "apt-get update" "Basic Apps cập nhật apt cache trước khi cài"
 
 if (
     . "$ROOT/lib/setup-contract.sh"
@@ -139,17 +161,17 @@ if (
     install_chrome() { printf 'called:chrome\n'; return 3; }
     install_chromium() { printf 'called:chromium\n'; return 4; }
     install_vscode() { printf 'called:vscode\n'; return 5; }
-    CHILD_FILE="$BASIC_FILE"
-    SETUP_SELECTED='1 2 3 4 5'
+    CHILD_FILE="$OFFICE_FILE"
+    SETUP_SELECTED='1 2'
     run_selected_best_effort
-) > "$TMP_TEST/basic-best-effort.out" 2>&1; then
+) > "$TMP_TEST/office-best-effort.out" 2>&1; then
     pass "optional apps lỗi vẫn trả thành công"
 else
     fail "optional apps lỗi vẫn trả thành công"
 fi
-for app_name in freeoffice libreoffice chrome chromium vscode; do
-    assert_contains "$TMP_TEST/basic-best-effort.out" "called:$app_name" \
-        "optional runner tiếp tục tới $app_name"
+for app_name in freeoffice libreoffice; do
+    assert_contains "$TMP_TEST/office-best-effort.out" "called:$app_name" \
+        "Office runner tiếp tục tới $app_name"
 done
 
 OUT="$TMP_TEST/interactive.out"
@@ -232,10 +254,19 @@ for command_name in apt-get curl gpg; do
 done
 
 if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
-    sh "$BASIC_FILE" > "$TMP_TEST/basic-core-failure.out" 2>&1; then
-    fail "Basic Apps core failure phải trả non-zero"
+    sh "$IME_FILE" > "$TMP_TEST/ime-core-failure.out" 2>&1; then
+    fail "IME core failure phải trả non-zero"
 else
-    pass "Basic Apps core failure vẫn trả non-zero"
+    pass "IME core failure vẫn trả non-zero"
+fi
+: > "$TMP_TEST/side-effects.log"
+
+if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
+    sh "$BASIC_FILE" > "$TMP_TEST/basic-empty.out" 2>&1 && \
+   [ ! -s "$TMP_TEST/side-effects.log" ]; then
+    pass "Basic Apps no-argument không gọi apt/curl/gpg"
+else
+    fail "Basic Apps no-argument không gọi apt/curl/gpg"
 fi
 : > "$TMP_TEST/side-effects.log"
 
