@@ -89,16 +89,10 @@ install_slack() {
         warn "Đã có source Slack; giữ nguyên và không thêm source mới: $(printf '%s' "$SLACK_REPO_FILES" | tr '\n' ' ')"
     else
         mkdir -p /etc/apt/keyrings || return $?
-        SLACK_KEY=$(mktemp /tmp/slack-key.XXXXXX.asc) || return 1
-        if ! curl -fsSL https://packagecloud.io/slacktechnologies/slack/gpgkey -o "$SLACK_KEY"; then
-            rm -f "$SLACK_KEY"
+        if ! curl -fsSL https://packagecloud.io/slacktechnologies/slack/gpgkey \
+            | gpg --yes --dearmor -o /etc/apt/keyrings/slack.gpg; then
             return 1
         fi
-        if ! gpg --yes --dearmor -o /etc/apt/keyrings/slack.gpg "$SLACK_KEY"; then
-            rm -f "$SLACK_KEY"
-            return 1
-        fi
-        rm -f "$SLACK_KEY"
         if ! printf '%s\n' \
             "deb [arch=amd64 signed-by=/etc/apt/keyrings/slack.gpg] https://packagecloud.io/slacktechnologies/slack/debian/ jessie main" \
             > /etc/apt/sources.list.d/slack.list; then

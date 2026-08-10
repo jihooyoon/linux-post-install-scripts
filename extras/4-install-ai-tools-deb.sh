@@ -116,22 +116,17 @@ install_claude_desktop() {
         warn "Đã có source Claude Desktop; giữ nguyên và không thêm source mới: $(printf '%s' "$CLAUDE_DESKTOP_REPO_FILES" | tr '\n' ' ')"
     else
         mkdir -p /usr/share/keyrings || return $?
-        CLAUDE_KEY=$(mktemp /tmp/claude-desktop-key.XXXXXX.asc) || return 1
-        if ! curl -fsSLo "$CLAUDE_KEY" https://downloads.claude.ai/claude-desktop/key.asc; then
-            rm -f "$CLAUDE_KEY"
+        if ! curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+            https://downloads.claude.ai/claude-desktop/key.asc; then
             return 1
         fi
 
         # Xác minh vân tay khóa theo guide (tránh khóa giả mạo)
-        FPR=$(gpg --show-keys --with-colons "$CLAUDE_KEY" 2>/dev/null \
+        FPR=$(gpg --show-keys --with-colons /usr/share/keyrings/claude-desktop-archive-keyring.asc 2>/dev/null \
               | awk -F: '$1=="fpr"{print $10; exit}')
         if [ "$FPR" != "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ]; then
-            rm -f "$CLAUDE_KEY"
+            rm -f /usr/share/keyrings/claude-desktop-archive-keyring.asc
             warn "Khóa tải về không khớp vân tay Anthropic (nhận: $FPR) — bỏ qua Claude Desktop"
-            return 1
-        fi
-        if ! mv -f "$CLAUDE_KEY" /usr/share/keyrings/claude-desktop-archive-keyring.asc; then
-            rm -f "$CLAUDE_KEY"
             return 1
         fi
         ok "Đã xác minh khóa Anthropic"

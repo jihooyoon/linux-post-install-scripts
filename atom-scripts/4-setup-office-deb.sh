@@ -153,24 +153,24 @@ install_onlyoffice() {
         warn "Đã có source ONLYOFFICE; giữ nguyên source và keyring hiện có: $(printf '%s' "$ONLYOFFICE_REPO_FILES" | tr '\n' ' ')"
     else
         ensure_gpg || return $?
-        mkdir -p /etc/apt/keyrings || return $?
-        ONLYOFFICE_KEY=$(mktemp /tmp/onlyoffice-key.XXXXXX.gpg) || return 1
-        rm -f "$ONLYOFFICE_KEY"
-        if ! gpg --batch --no-default-keyring --keyring "gnupg-ring:$ONLYOFFICE_KEY" \
+        mkdir -p -m 700 ~/.gnupg || return $?
+        rm -f /tmp/onlyoffice.gpg
+        if ! gpg --no-default-keyring --keyring gnupg-ring:/tmp/onlyoffice.gpg \
             --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5; then
-            rm -f "$ONLYOFFICE_KEY"
+            rm -f /tmp/onlyoffice.gpg
             return 1
         fi
-        if ! chmod 644 "$ONLYOFFICE_KEY" || ! chown root:root "$ONLYOFFICE_KEY"; then
-            rm -f "$ONLYOFFICE_KEY"
+        if ! chmod 644 /tmp/onlyoffice.gpg || ! chown root:root /tmp/onlyoffice.gpg; then
+            rm -f /tmp/onlyoffice.gpg
             return 1
         fi
-        if ! mv -f "$ONLYOFFICE_KEY" /etc/apt/keyrings/onlyoffice.gpg; then
-            rm -f "$ONLYOFFICE_KEY"
+        mkdir -p /usr/share/keyrings || { rm -f /tmp/onlyoffice.gpg; return 1; }
+        if ! mv -f /tmp/onlyoffice.gpg /usr/share/keyrings/onlyoffice.gpg; then
+            rm -f /tmp/onlyoffice.gpg
             return 1
         fi
         if ! printf '%s\n' \
-            'deb [signed-by=/etc/apt/keyrings/onlyoffice.gpg] https://download.onlyoffice.com/repo/debian squeeze main' \
+            'deb [signed-by=/usr/share/keyrings/onlyoffice.gpg] https://download.onlyoffice.com/repo/debian squeeze main' \
             > /etc/apt/sources.list.d/onlyoffice.list; then
             return 1
         fi
