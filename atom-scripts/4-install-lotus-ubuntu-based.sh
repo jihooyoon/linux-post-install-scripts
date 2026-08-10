@@ -1,7 +1,10 @@
 #!/bin/sh
-# install-lotus-ubuntu-based.sh — Cài bộ gõ tiếng Việt Lotus (fcitx5-lotus) cho fcitx5
+# @setup-description: Cài bộ gõ tiếng Việt Lotus
+# @setup-when: always
+# @setup-core-description: Cài và cấu hình fcitx5-lotus
+# 4-install-lotus-ubuntu-based.sh — Cài bộ gõ tiếng Việt Lotus (fcitx5-lotus) cho fcitx5
 # Nguồn repo: https://fcitx5-lotus.pages.dev (hỗ trợ Ubuntu-based)
-# Chạy: sudo ./install-lotus-ubuntu-based.sh
+# Chạy: sudo ./4-install-lotus-ubuntu-based.sh
 
 set -e
 
@@ -12,6 +15,15 @@ info() { printf '\033[1;34m[lotus]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
+
+CHILD_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CHILD_FILE="$CHILD_DIR/$(basename -- "$0")"
+. "$CHILD_DIR/../lib/setup-contract.sh"
+setup_child_prepare "$CHILD_FILE" "$@" || exit $?
+if [ "$SETUP_SHOW_HELP" -eq 1 ]; then
+    setup_print_help "$CHILD_FILE"
+    exit 0
+fi
 
 wait_apt() {
     _i=0
@@ -83,7 +95,7 @@ fi
 # lý input method qua kwinrc (mục "Virtual Keyboard" trong System Settings, xem
 # Bước 6b) và tự đặt biến môi trường — set tay bị cảnh báo, đẩy app vào nhánh XIM.
 # Chạy qua sudo nên XDG_CURRENT_DESKTOP thường bị reset (rỗng) — fallback đoán
-# theo process của session đồ họa đang chạy của user (giống set-ime-shortcut.sh)
+# theo process của session đồ họa đang chạy của user (giống 3-set-ime-shortcut.sh)
 DESKTOP=$XDG_CURRENT_DESKTOP
 if [ -z "$DESKTOP" ]; then
     pgrep -u "$SUDO_USER" -x gnome-shell >/dev/null 2>&1 && DESKTOP=GNOME
@@ -308,6 +320,6 @@ else
 fi
 
 printf '\nCách gõ: \033[1mCtrl+Space\033[0m để chuyển giữa bàn phím tiếng Anh và \033[1mLotus\033[0m (đã thêm sẵn vào profile).\n'
-printf 'Gợi ý: nên dùng cùng fcitx5 (install-basic-apps-deb.sh đã cài sẵn).\n'
+printf 'Gợi ý: nên dùng cùng fcitx5 (3-install-basic-apps-deb.sh đã cài sẵn).\n'
 printf 'Nếu app X11 GTK3 cũ không gõ được: thêm GTK_IM_MODULE=fcitx vào /etc/environment.d/fcitx5.conf.\n'
 printf 'KDE chạy phiên X11 (không phải Wayland): cần thêm QT_IM_MODULE=fcitx vào file đó.\n'

@@ -1,7 +1,10 @@
 #!/bin/sh
-# generalize-tuxedo-os.sh — Gỡ các app + theme SDDM/Plasma + wallpaper + avatar Tuxedo khỏi Tuxedo OS
+# @setup-description: De-bloat Tuxedo brand
+# @setup-when: tuxedo
+# @setup-core-description: De-bloat & de-brandind
+# 1-generalize-tuxedo-os.sh — Gỡ các app + theme SDDM/Plasma + wallpaper + avatar Tuxedo khỏi Tuxedo OS
 # Dùng khi muốn biến Tuxedo OS thành Ubuntu/Debian "thuần" hơn.
-# Chạy: sudo ./generalize-tuxedo-os.sh
+# Chạy: sudo ./1-generalize-tuxedo-os.sh
 
 set -e
 
@@ -12,6 +15,15 @@ info() { printf '\033[1;34m[tuxedo-generalize]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m                %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m              %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m             %s\n' "$*" >&2; exit 1; }
+
+CHILD_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CHILD_FILE="$CHILD_DIR/$(basename -- "$0")"
+. "$CHILD_DIR/../lib/setup-contract.sh"
+setup_child_prepare "$CHILD_FILE" "$@" || exit $?
+if [ "$SETUP_SHOW_HELP" -eq 1 ]; then
+    setup_print_help "$CHILD_FILE"
+    exit 0
+fi
 
 wait_apt() {
     _i=0

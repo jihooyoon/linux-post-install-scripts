@@ -1,6 +1,9 @@
 #!/bin/sh
-# enable-flatpak-flathub-deb.sh — Cài flatpak + bật kho Flathub trên Ubuntu/Debian
-# Chạy: sudo ./enable-flatpak-flathub-deb.sh
+# @setup-description: Bật Flatpak & Flathub
+# @setup-when: always
+# @setup-core-description: Bật Flatpak & Flathub
+# 2-enable-flatpak-flathub-deb.sh — Cài flatpak + bật kho Flathub trên Ubuntu/Debian
+# Chạy: sudo ./2-enable-flatpak-flathub-deb.sh
 
 set -e
 
@@ -11,6 +14,15 @@ info() { printf '\033[1;34m[flatpak]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m      %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m    %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
+
+CHILD_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CHILD_FILE="$CHILD_DIR/$(basename -- "$0")"
+. "$CHILD_DIR/../lib/setup-contract.sh"
+setup_child_prepare "$CHILD_FILE" "$@" || exit $?
+if [ "$SETUP_SHOW_HELP" -eq 1 ]; then
+    setup_print_help "$CHILD_FILE"
+    exit 0
+fi
 
 wait_apt() {
     _i=0

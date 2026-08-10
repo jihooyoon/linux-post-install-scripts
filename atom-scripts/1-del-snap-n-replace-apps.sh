@@ -1,6 +1,9 @@
 #!/bin/sh
-# del-snap-n-replace-apps.sh — Gỡ toàn bộ snap packages và snapd, cài lại Firefox .deb + pin Thunderbird tránh snap
-# Chạy: sudo ./del-snap-n-replace-apps.sh
+# @setup-description: De-bloat Ubuntu-based
+# @setup-when: non-tuxedo
+# @setup-core-description: De-snap, thay bằng deb
+# 1-del-snap-n-replace-apps.sh — Gỡ toàn bộ snap packages và snapd, cài lại Firefox .deb + pin Thunderbird tránh snap
+# Chạy: sudo ./1-del-snap-n-replace-apps.sh
 # Lưu ý: trên Ubuntu 22.04+, việc purge snapd có thể kéo theo việc
 # gỡ các gói transitional như firefox, gnome-software (cài lại bằng deb sau đó).
 # Thunderbird được pin để sau này nếu cài sẽ lấy từ PPA, không phải snap.
@@ -14,6 +17,15 @@ info() { printf '\033[1;34m[del-snap]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m     %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m   %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m  %s\n' "$*" >&2; exit 1; }
+
+CHILD_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CHILD_FILE="$CHILD_DIR/$(basename -- "$0")"
+. "$CHILD_DIR/../lib/setup-contract.sh"
+setup_child_prepare "$CHILD_FILE" "$@" || exit $?
+if [ "$SETUP_SHOW_HELP" -eq 1 ]; then
+    setup_print_help "$CHILD_FILE"
+    exit 0
+fi
 
 wait_apt() {
     _i=0

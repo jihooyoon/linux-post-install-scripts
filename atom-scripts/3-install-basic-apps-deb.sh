@@ -1,8 +1,14 @@
 #!/bin/sh
-# install-basic-apps-deb.sh — Ubuntu/Debian: gỡ sạch LibreOffice, cài fcitx5 (purge ibus, autostart) + FreeOffice
-# Chạy: sudo ./install-basic-apps-deb.sh            (hiện menu chọn app)
-#       sudo ./install-basic-apps-deb.sh --all | -a (cài tất cả, không hỏi)
-#       sudo ./install-basic-apps-deb.sh --help | -h (trợ giúp)
+# @setup-description: Cài nền bộ gõ và các app cơ bản
+# @setup-when: always
+# @setup-core-description: Dùng fcitx5 thay thế ibus (đã lỗi thời)
+# @setup-item: install_freeoffice|FreeOffice 2024
+# @setup-item: install_libreoffice|LibreOffice
+# @setup-item: install_chrome|Google Chrome
+# @setup-item: install_chromium|Chromium (.deb thật)
+# @setup-item: install_vscode|Visual Studio Code
+# 3-install-basic-apps-deb.sh — Ubuntu/Debian: cài fcitx5 và các ứng dụng cơ bản tùy chọn
+# Chạy: sudo ./3-install-basic-apps-deb.sh [--all|-a|item-number ...]
 
 set -e
 
@@ -13,6 +19,15 @@ info() { printf '\033[1;34m[install]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[OK]\033[0m      %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m    %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m   %s\n' "$*" >&2; exit 1; }
+
+CHILD_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CHILD_FILE="$CHILD_DIR/$(basename -- "$0")"
+. "$CHILD_DIR/../lib/setup-contract.sh"
+setup_child_prepare "$CHILD_FILE" "$@" || exit $?
+if [ "$SETUP_SHOW_HELP" -eq 1 ]; then
+    setup_print_help "$CHILD_FILE"
+    exit 0
+fi
 
 wait_apt() {
     _i=0
@@ -33,23 +48,38 @@ wait_apt() {
     sleep 2
 }
 
-# --- Trợ giúp (không cần root) ---
-case "${1:-}" in
-    --help|-h)
-        echo "Usage: sudo $0 [--all|-a] [--help|-h]"
-        echo ""
-        echo "  (không đối số)  Hiện menu tương tác để chọn app cài đặt"
-        echo "  --all, -a       Cài tất cả, không hiện menu"
-        echo "  --help, -h      In trợ giúp này"
-        echo ""
-        echo "  Các app có thể chọn trong menu:"
-        echo "    1) LibreOffice → FreeOffice (gỡ LO, cài FreeOffice)"
-        echo "    2) Google Chrome"
-        echo "    3) Chromium (.deb thật)"
-        echo "    4) Visual Studio Code"
-        exit 0
-        ;;
-esac
+ensure_curl() {
+    command -v curl >/dev/null 2>&1 || apt-get install -y curl
+}
+
+run_remote_script() {
+    _url=$1
+    _prefix=$2
+    _script=$(mktemp "/tmp/${_prefix}.XXXXXX.sh") || return 1
+    if ! curl -fsSL "$_url" -o "$_script"; then
+        rm -f "$_script"
+        return 1
+    fi
+    if bash "$_script"; then
+        _code=0
+    else
+        _code=$?
+    fi
+    rm -f "$_script"
+    return "$_code"
+}
+
+run_best_effort() {
+    _label=$1
+    _function=$2
+    if "$_function"; then
+        return 0
+    else
+        _code=$?
+    fi
+    warn "$_label thất bại (exit $_code) — tiếp tục"
+    return 0
+}
 
 # --- Kiểm tra quyền root ---
 [ "$(id -u)" -eq 0 ] || die "Phải chạy với quyền root: sudo $0"
@@ -58,28 +88,66 @@ esac
 # Các hàm cài đặt (mỗi hàm = 1 mục trong menu)
 # ============================================================
 
-# --- Mục 1: Gỡ LibreOffice + cài FreeOffice 2024 ---
-install_freeoffice() {
-    # Gỡ sạch LibreOffice nếu có
+# --- Reconcile hai bộ Office trước khi cài item ---
+purge_libreoffice() {
     info "Gỡ LibreOffice (nếu có)..."
     if dpkg -l 'libreoffice*' 2>/dev/null | grep -q '^ii'; then
-        apt-get purge -y 'libreoffice*'
-        apt-get autoremove -y --purge
+        apt-get purge -y 'libreoffice*' || return $?
+        apt-get autoremove -y --purge || return $?
         rm -rf /root/.config/libreoffice /root/.cache/libreoffice \
-               /home/*/.config/libreoffice /home/*/.cache/libreoffice
+               /home/*/.config/libreoffice /home/*/.cache/libreoffice || return $?
         ok "Đã gỡ sạch LibreOffice"
     else
         ok "LibreOffice chưa được cài — bỏ qua"
     fi
+}
 
-    # Cài FreeOffice 2024
+purge_freeoffice() {
+    info "Gỡ FreeOffice (nếu có)..."
+    if ! dpkg -l 'softmaker-freeoffice*' 2>/dev/null | grep -q '^ii' && \
+       [ ! -d /usr/share/freeoffice2024 ]; then
+        ok "FreeOffice chưa được cài — bỏ qua"
+        return 0
+    fi
+
+    ensure_curl || return $?
+    run_remote_script \
+        https://softmaker.net/down/uninstall-softmaker-freeoffice-2024.sh \
+        uninstall-freeoffice || return $?
+    ok "Đã gỡ FreeOffice 2024"
+}
+
+reconcile_office_selection() {
+    _want_freeoffice=0
+    _want_libreoffice=0
+    setup_has_word "$SETUP_SELECTED" 1 && _want_freeoffice=1
+    setup_has_word "$SETUP_SELECTED" 2 && _want_libreoffice=1
+
+    if [ "$_want_freeoffice" -eq 1 ] && [ "$_want_libreoffice" -eq 0 ]; then
+        run_best_effort "Gỡ LibreOffice" purge_libreoffice
+    elif [ "$_want_freeoffice" -eq 0 ] && [ "$_want_libreoffice" -eq 1 ]; then
+        run_best_effort "Gỡ FreeOffice" purge_freeoffice
+    fi
+}
+
+# --- Mục 1: Cài FreeOffice 2024 ---
+install_freeoffice() {
     info "Cài FreeOffice 2024..."
-    command -v curl >/dev/null 2>&1 || apt-get install -y curl
-    curl -fsSL https://softmaker.net/down/install-softmaker-freeoffice-2024.sh | bash
+    ensure_curl || return $?
+    run_remote_script \
+        https://softmaker.net/down/install-softmaker-freeoffice-2024.sh \
+        install-freeoffice || return $?
     ok "Đã cài FreeOffice 2024"
 }
 
-# --- Mục 2: Cài Google Chrome ---
+# --- Mục 2: Cài LibreOffice từ repo mặc định ---
+install_libreoffice() {
+    info "Cài LibreOffice từ repo mặc định của distro..."
+    apt-get install -y libreoffice || return $?
+    ok "Đã cài LibreOffice"
+}
+
+# --- Mục 3: Cài Google Chrome ---
 install_chrome() {
     info "Cài Google Chrome..."
     CHROME_REPO_PATTERN='https?://dl\.google\.com/linux/chrome/deb/?([[:space:]]|$)'
@@ -87,18 +155,29 @@ install_chrome() {
     if [ -n "$CHROME_REPO_FILES" ]; then
         warn "Đã có source Google Chrome; giữ nguyên và không thêm source mới: $(printf '%s' "$CHROME_REPO_FILES" | tr '\n' ' ')"
     else
-        command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
-        mkdir -p /etc/apt/keyrings
-        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --yes --dearmor -o /etc/apt/keyrings/google-chrome.gpg
-        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-            > /etc/apt/sources.list.d/google-chrome.list
+        ensure_curl || return $?
+        command -v gpg >/dev/null 2>&1 || apt-get install -y gpg || return $?
+        mkdir -p /etc/apt/keyrings || return $?
+        CHROME_KEY=$(mktemp /tmp/google-chrome-key.XXXXXX) || return 1
+        if ! curl -fsSL https://dl.google.com/linux/linux_signing_key.pub -o "$CHROME_KEY"; then
+            rm -f "$CHROME_KEY"
+            return 1
+        fi
+        if ! gpg --yes --dearmor -o /etc/apt/keyrings/google-chrome.gpg "$CHROME_KEY"; then
+            rm -f "$CHROME_KEY"
+            return 1
+        fi
+        rm -f "$CHROME_KEY"
+        printf '%s\n' \
+            "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+            > /etc/apt/sources.list.d/google-chrome.list || return $?
     fi
-    apt-get update
-    apt-get install -y google-chrome-stable
+    apt-get update || return $?
+    apt-get install -y google-chrome-stable || return $?
     ok "Đã cài Google Chrome"
 }
 
-# --- Mục 3: Cài Chromium (.deb thật) ---
+# --- Mục 4: Cài Chromium (.deb thật) ---
 install_chromium() {
     info "Cài Chromium..."
     HAS_CHROMIUM=0
@@ -115,11 +194,11 @@ install_chromium() {
 
     if [ "$HAS_CHROMIUM" -eq 1 ]; then
         info "Repo hiện tại có $CHROMIUM_PKG (.deb thật) — cài trực tiếp"
-        apt-get install -y "$CHROMIUM_PKG"
+        apt-get install -y "$CHROMIUM_PKG" || return $?
     else
         # Fallback: thêm Linux Mint repo (chỉ lấy chromium)
         warn "Repo không có chromium .deb — thêm Linux Mint repo (chỉ chromium)"
-        command -v curl >/dev/null 2>&1 || apt-get install -y curl
+        ensure_curl || return $?
         UBUNTU_CODENAME=$(grep -oP 'VERSION_CODENAME=\K.*' /etc/os-release 2>/dev/null || lsb_release -sc 2>/dev/null || true)
         case "$UBUNTU_CODENAME" in
             jammy)  MINT_SUITE="virginia"  ;;  # 22.04 → Mint 21.x
@@ -133,34 +212,47 @@ install_chromium() {
         else
             # Cài linuxmint-keyring
             MINT_KEYRING_URL="http://packages.linuxmint.com/pool/main/l/linuxmint-keyring"
-            KEYRING_DEB=$(curl -fsSL "$MINT_KEYRING_URL/" 2>/dev/null | \
+            MINT_KEYRING_INDEX=$(curl -fsSL "$MINT_KEYRING_URL/" 2>/dev/null) || return $?
+            KEYRING_DEB=$(printf '%s\n' "$MINT_KEYRING_INDEX" | \
                 grep -oP 'linuxmint-keyring_[^"]+_all\.deb' | sort -V | tail -1)
-            [ -n "$KEYRING_DEB" ] || die "Không tìm thấy linuxmint-keyring — kiểm tra kết nối mạng"
-            TMP_DEB=$(mktemp /tmp/linuxmint-keyring.XXXXXX.deb)
-            curl -fsSL "$MINT_KEYRING_URL/$KEYRING_DEB" -o "$TMP_DEB"
-            dpkg -i "$TMP_DEB"
+            if [ -z "$KEYRING_DEB" ]; then
+                warn "Không tìm thấy linuxmint-keyring — kiểm tra kết nối mạng"
+                return 1
+            fi
+            TMP_DEB=$(mktemp /tmp/linuxmint-keyring.XXXXXX.deb) || return 1
+            if ! curl -fsSL "$MINT_KEYRING_URL/$KEYRING_DEB" -o "$TMP_DEB"; then
+                rm -f "$TMP_DEB"
+                return 1
+            fi
+            if ! dpkg -i "$TMP_DEB"; then
+                rm -f "$TMP_DEB"
+                return 1
+            fi
             rm -f "$TMP_DEB"
-            mkdir -p /etc/apt/keyrings
-            [ -f /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg ] && \
-                mv /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg /etc/apt/keyrings/
+            mkdir -p /etc/apt/keyrings || return $?
+            if [ -f /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg ]; then
+                mv /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg /etc/apt/keyrings/ || return $?
+            fi
             # Thêm repo Mint (Include: chromium — apt 26.04+ chỉ lấy chromium)
-            cat > /etc/apt/sources.list.d/linuxmint.sources <<EOF
-# Linux Mint repo — chỉ lấy chromium, không ảnh hưởng gì đến hệ thống
-Types: deb
-URIs: http://packages.linuxmint.com
-Suites: $MINT_SUITE
-Components: upstream
-Include: chromium
-Signed-By: /etc/apt/keyrings/linuxmint-keyring.gpg
-EOF
+            if ! printf '%s\n' \
+                '# Linux Mint repo — chỉ lấy chromium, không ảnh hưởng gì đến hệ thống' \
+                'Types: deb' \
+                'URIs: http://packages.linuxmint.com' \
+                "Suites: $MINT_SUITE" \
+                'Components: upstream' \
+                'Include: chromium' \
+                'Signed-By: /etc/apt/keyrings/linuxmint-keyring.gpg' \
+                > /etc/apt/sources.list.d/linuxmint.sources; then
+                return 1
+            fi
         fi
-        apt-get update
-        apt-get install -y chromium
+        apt-get update || return $?
+        apt-get install -y chromium || return $?
     fi
     ok "Đã cài Chromium"
 }
 
-# --- Mục 4: Cài Visual Studio Code ---
+# --- Mục 5: Cài Visual Studio Code ---
 install_vscode() {
     info "Cài Visual Studio Code..."
     # /repos/code là source APT chính thức hiện tại. /repos/vscode là source legacy
@@ -174,83 +266,46 @@ install_vscode() {
     elif [ -n "$VSCODE_LEGACY_REPO_FILES" ]; then
         warn "Đã có source VS Code legacy (/repos/vscode); giữ nguyên và không thêm source /repos/code: $(printf '%s' "$VSCODE_LEGACY_REPO_FILES" | tr '\n' ' ')"
     else
-        command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
-        mkdir -p /etc/apt/keyrings
+        ensure_curl || return $?
+        command -v gpg >/dev/null 2>&1 || apt-get install -y gpg || return $?
+        mkdir -p /etc/apt/keyrings || return $?
         # Ghi key vào file tạm rồi mv để không để lại key cụt nếu gpg bị lỗi giữa chừng.
-        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --yes --dearmor -o /etc/apt/keyrings/microsoft.gpg.tmp
-        mv -f /etc/apt/keyrings/microsoft.gpg.tmp /etc/apt/keyrings/microsoft.gpg
+        VSCODE_KEY=$(mktemp /tmp/microsoft-key.XXXXXX) || return 1
+        if ! curl -fsSL https://packages.microsoft.com/keys/microsoft.asc -o "$VSCODE_KEY"; then
+            rm -f "$VSCODE_KEY"
+            return 1
+        fi
+        if ! gpg --yes --dearmor -o /etc/apt/keyrings/microsoft.gpg.tmp "$VSCODE_KEY"; then
+            rm -f "$VSCODE_KEY"
+            return 1
+        fi
+        rm -f "$VSCODE_KEY"
+        mv -f /etc/apt/keyrings/microsoft.gpg.tmp /etc/apt/keyrings/microsoft.gpg || return $?
 
-        echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
-            > /etc/apt/sources.list.d/vscode.list
+        printf '%s\n' \
+            "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+            > /etc/apt/sources.list.d/vscode.list || return $?
     fi
 
-    apt-get update
-    apt-get install -y code
+    apt-get update || return $?
+    apt-get install -y code || return $?
     ok "Đã cài Visual Studio Code"
 }
 
-# ============================================================
-# Menu & chọn app
-# ============================================================
-
-# Định nghĩa các mục có thể chọn (label|hàm)
-MENU_ITEMS="
-LibreOffice → FreeOffice (gỡ LO, cài FreeOffice)|install_freeoffice
-Google Chrome|install_chrome
-Chromium (.deb thật)|install_chromium
-Visual Studio Code|install_vscode
-"
-
-show_menu() {
-    printf '\n'
-    printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
-    printf '\033[1;36m  Chọn app muốn cài đặt\033[0m\n'
-    printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
-    i=1
-    while IFS='|' read -r label func; do
-        [ -z "$label" ] && continue
-        printf '  \033[1;33m%d)\033[0m %s\n' "$i" "$label"
-        i=$((i + 1))
+run_selected_best_effort() {
+    _items=$(setup_items "$CHILD_FILE")
+    _i=1
+    while IFS='|' read -r _function _label; do
+        [ -n "$_function" ] || continue
+        if setup_has_word "$SETUP_SELECTED" "$_i"; then
+            printf '\n\033[1;36m[item]\033[0m %d) %s\n' "$_i" "$_label"
+            run_best_effort "$_label" "$_function"
+        fi
+        _i=$((_i + 1))
     done <<EOF
-$MENU_ITEMS
+$_items
 EOF
-    printf '  \033[1;33ma)\033[0m Cài tất cả (mặc định)\n'
-    printf '  \033[1;33mq)\033[0m Thoát (không cài gì thêm)\n'
-    printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
-    printf 'Nhập số (vd: 1 3 4) hoặc Enter để cài tất cả: '
 }
-
-parse_menu_choice() {
-    # $1 = raw input string from user
-    _input="$1"
-
-    # Mặc định (Enter rỗng) hoặc 'a' → tất cả
-    if [ -z "$_input" ] || [ "$_input" = "a" ]; then
-        echo "1 2 3 4"
-        return
-    fi
-
-    # 'q' → thoát
-    if [ "$_input" = "q" ]; then
-        echo "quit"
-        return
-    fi
-
-    # Trả về nguyên chuỗi số đã nhập
-    echo "$_input"
-}
-
-# ============================================================
-# Argument parsing
-# ============================================================
-
-ALL=0
-
-case "${1:-}" in
-    --all|-a) ALL=1 ;;
-    "")       ;;  # Mặc định: hiện menu
-    *)        die "Không rõ tuỳ chọn: $1. Dùng --help để xem hướng dẫn." ;;
-esac
 
 # ============================================================
 # Luôn chạy (không cần chọn)
@@ -346,58 +401,13 @@ fi
 
 ok "Đã cài fcitx5 (đăng xuất/đăng nhập lại để áp dụng)"
 
-# ============================================================
-# Chọn app để cài
-# ============================================================
-
-if [ "$ALL" -eq 1 ]; then
-    SELECTED="1 2 3 4"
-    info "Chế độ --all: cài tất cả"
+if [ -z "$SETUP_SELECTED" ]; then
+    warn "Không chọn ứng dụng tùy chọn — chỉ chạy phần core"
 else
-    show_menu
-    read -r USER_CHOICE </dev/tty
-
-    SELECTED=$(parse_menu_choice "$USER_CHOICE")
-
-    if [ "$SELECTED" = "quit" ]; then
-        printf '\n\033[1;33mĐã thoát. Các bước đã chạy: cập nhật gói + fcitx5 + purge ibus.\033[0m\n'
-        exit 0
-    fi
+    reconcile_office_selection
+    run_selected_best_effort
 fi
-
-# Chạy các mục đã chọn
-FIRST=1
-for num in $SELECTED; do
-    i=1
-    while IFS='|' read -r label func; do
-        [ -z "$label" ] && continue
-        if [ "$i" -eq "$num" ]; then
-            printf '\n'
-            if [ "$FIRST" -eq 1 ]; then
-                FIRST=0
-            fi
-            info "PROCESSING mục $num ($label) — hàm: $func"
-            $func
-            break
-        fi
-        i=$((i + 1))
-    done <<EOF
-$MENU_ITEMS
-EOF
-done
 
 printf '\n\033[1;32mHoàn tất!\033[0m Tóm tắt:\n'
 printf '  - fcitx5: cài xong, đã purge ibus, autostart sẵn (đăng xuất/đăng nhập lại)\n'
-for num in $SELECTED; do
-    i=1
-    while IFS='|' read -r label func; do
-        [ -z "$label" ] && continue
-        if [ "$i" -eq "$num" ]; then
-            printf '  - %s: đã cài\n' "$label"
-            break
-        fi
-        i=$((i + 1))
-    done <<EOF
-$MENU_ITEMS
-EOF
-done
+[ -n "$SETUP_SELECTED" ] && printf '  - Các item đã chọn: %s\n' "$SETUP_SELECTED"

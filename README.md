@@ -7,7 +7,7 @@ Scripts for configuring Linux distros after clean install
 **Những việc scripts sẽ làm:**
 - De-Bullshit Ubuntu: Mục tiêu gỡ hoàn toàn snap, tránh bloat
 - Bật Flatpak
-- Cài lại các app cơ bản (browser, email client, chuyển libreoffice thành freeoffice,...)
+- Cài lại các app cơ bản (browser, LibreOffice, FreeOffice,...)
 - Cài bộ gõ tiếng Việt dùng ổn nhất hiện tại (fcitx5-lotus)
 - Setup các extras (chat apps, claude, shortcut chuyển bộ gõ (Alt + Space với Ubuntu/GNOME và Win + Space với các môi trường còn lại), nodejs,...)
 
@@ -23,25 +23,25 @@ Scripts for configuring Linux distros after clean install
 Full setup:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --silent
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --silent
 ```
 
 Basic setup:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic --silent
-```
-
-Dev branch:
-
-```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/dev/remote-setup.sh | sh -s -- --dev
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic --silent
 ```
 
 Setup with options (menu tương tác):
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh
+```
+
+Dev branch:
+
+```bash
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/dev/remote-setup.sh | sh -s -- --dev
 ```
 
 *Không cần `sudo` ở ngoài — `remote-setup.sh` tự gọi `sudo` khi chạy phần cài đặt (chỉ hỏi mật khẩu sudo khi cần). Cách cũ (`curl ... | sudo sh`, `sudo sh remote-setup.sh`) vẫn hoạt động.*
@@ -50,10 +50,11 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 
 | Tham số | Mô tả |
 |---|---|
-| *(không)* | Chạy `setup-all-ubuntu-based.sh` với menu tương tác |
-| `--basic` | Chỉ chạy `setup-basic-ubuntu-based.sh` (bỏ qua extras) |
+| *(không)* | Chạy `setup-ubuntu-based.sh` với menu động và review trước execution |
+| `--basic` | Chỉ chạy atom scripts, bỏ qua extras |
 | `--dev` | Tải và chạy source từ nhánh `dev` thay vì `main` |
-| `--silent` | Không hiện menu, tự chọn tất cả (truyền xuống script con) |
+| `--all`, `-a` | Không hiện menu, tự chọn tất cả |
+| `--silent` | Như `--all` và truyền `--all` xuống script con |
 | `--help`, `-h` | In trợ giúp |
 
 *Debug mode:* Thêm `DEBUG=1` trước `sh` để thấy tất cả lệnh đang chạy:
@@ -64,30 +65,26 @@ curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-script
 
 *Cơ chế remote setup:*
 
-> `remote-setup.sh` tự tải repo về `/tmp`, cấp quyền execute (git không lưu quyền này), rồi tự gọi `sudo` (nếu chưa root) để chạy `setup-all-ubuntu-based.sh` (thêm `--basic` để chỉ chạy `setup-basic-ubuntu-based.sh`), rồi tự xóa toàn bộ file tạm khi kết thúc — kể cả khi lỗi giữa chừng. Khi chạy qua pipe (`curl | sh`), script tự gán stdin của các script con từ terminal thật (`/dev/tty`) để menu tương tác nhận được input.
+> `remote-setup.sh` tự tải repo về `/tmp`, cấp quyền execute, rồi tự gọi `sudo` để chạy entrypoint thống nhất `setup-ubuntu-based.sh`. Cờ `--basic`, `--all` và `--silent` được truyền xuống entrypoint; file tạm luôn được dọn khi kết thúc. Khi chạy qua pipe (`curl | sh`), stdin của parent được nối với terminal thật để menu nhận input.
 
 ### Manual setup: Clone repo rồi chạy tay:
 - Cần chmod để cấp quyền run cho các file script
-- Chạy file `setup-basic-ubuntu-based.sh` để setup những thành phần cơ bản cho Ubuntu-based distro
-- Chạy file `setup-all-ubuntu-based.sh` để setup những thành phần cơ bản kèm toàn bộ extras cho Ubuntu-based distro
+- Chạy `sudo ./setup-ubuntu-based.sh` để chọn atom items và extras qua menu động
+- Dùng `sudo ./setup-ubuntu-based.sh --basic` nếu chỉ muốn chạy atom scripts
+- Dùng `sudo ./setup-ubuntu-based.sh --all` hoặc `--silent` để chạy không tương tác
 - Các scripts con cũng có thể chạy độc lập, tuy nhiên đa phần scripts phục vụ nhu cầu chạy độc lập sẽ nằm trong `extras`, các scripts trong `atom-scripts` gần như luôn cần
 
-**Các script chính đều hỗ trợ menu tương tác và tham số dòng lệnh:**
+**CLI của parent và script con:**
 
-| Script | Tham số hỗ trợ |
+| Phạm vi | Tham số hỗ trợ |
 |---|---|
-| `setup-all-ubuntu-based.sh` | `--all`, `-a` (cài tất cả) / `--silent` (không tương tác + truyền xuống con) / `--help` |
-| `setup-basic-ubuntu-based.sh` | `--silent` (truyền `--all` xuống script con) / `--help` |
-| `install-basic-apps-deb.sh` | `--all`, `-a` (cài tất cả app) / `--help` |
-| `install-ai-tools-deb.sh` | `--all`, `-a` / `--help` |
-| `install-chat-apps-deb.sh` | `--all`, `-a` / `--help` |
+| `setup-ubuntu-based.sh` | `--all`, `-a`, `--silent`, `--basic`, `--help` |
+| Child có item | `--all`, `-a`, một hoặc nhiều item number, `--help` |
+| Child chỉ có core | Không argument hoặc `--all`, `--help` |
 
-> Mặc định (không tham số) các script sẽ hiện menu tương tác để chọn thành phần muốn cài.
-> Chọn `q` để thoát — script sẽ exit 0, không làm đứt script cha.
+> Chỉ parent có menu. Child không argument sẽ chạy core nếu có; child không có core sẽ warning rồi no-op. Parent tiếp tục các script còn lại khi một child lỗi và trả non-zero tổng hợp ở cuối.
  
 ### Additional: Nếu dùng GNOME (VD: Ubuntu)
-**Cài thêm các extension cần thiết từ GNOME Extension Manager:**
+**Cài thêm extension cần thiết từ GNOME Extension Manager:**
 - **KIMPanel (Hiển thị bộ gõ trên status bar)** - Highly recommend để bộ gõ tiếng Việt có trải nghiệm tốt:<br>
 <https://extensions.gnome.org/extension/261/kimpanel>
-- **Copyous (Clipboard Manager)** - Recommend, để có có thể paste những dữ liệu copy cũ hơn trong lịch sử mà không cần copy lại (Win + V):<br>
-<https://extensions.gnome.org/extension/8834/copyous>
