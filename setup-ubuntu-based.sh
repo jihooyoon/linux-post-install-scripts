@@ -262,10 +262,12 @@ show_item_stage() {
     _description=$4
     _current=$(get_selection "$_kind" "$_slot")
     _core=$(setup_core_description "$_file")
+    _count=$(setup_item_count "$_file")
     printf '\n\033[1;36m══════════════════════════════════════════\033[0m\n'
     printf '\033[1;36m  %s — chọn item\033[0m\n' "$_description"
     printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
     show_items "$_file"
+    [ "$_count" -eq 0 ] || printf '  -------\n'
     printf '  \033[1;33ma)\033[0m Tất cả item\n'
     if [ -n "$_core" ]; then
         printf '  \033[1;33ms)\033[0m Không chọn item (chỉ chạy core)\n'
@@ -274,6 +276,7 @@ show_item_stage() {
     fi
     printf '  \033[1;33mb)\033[0m Quay lại    \033[1;33mq)\033[0m Thoát\n'
     [ -z "$_current" ] || printf '  Lựa chọn hiện tại: %s\n' "$_current"
+    printf '  -------\n'
     printf 'Nhập lựa chọn: '
 }
 
@@ -335,10 +338,12 @@ show_extra_stage() {
         [ -n "$_slot" ] || continue
         printf '  \033[1;33m%s)\033[0m %s\n' "$_slot" "$_description"
     done < "$EXTRA_MANIFEST"
+    printf '  -------\n'
     printf '  \033[1;33ma)\033[0m Tất cả extras\n'
     printf '  \033[1;33ms)\033[0m Không chạy extras\n'
     printf '  \033[1;33mb)\033[0m Quay lại    \033[1;33mq)\033[0m Thoát\n'
     [ -z "$_enabled" ] || printf '  Lựa chọn hiện tại: %s\n' "$_enabled"
+    printf '  -------\n'
     printf 'Nhập lựa chọn: '
 }
 
@@ -370,15 +375,15 @@ print_script_review() {
     _selection=$(get_selection "$_kind" "$_slot")
     _labels=$(selection_labels "$_file" "$_selection")
 
-    printf '  %s. %s\n' "$_slot" "$_description"
-    [ -z "$_core" ] || printf '     Core: %s\n' "$_core"
+    printf '  \033[97m%s. %s\033[0m\n' "$_slot" "$_description"
+    [ -z "$_core" ] || printf '     \033[90mCore: %s\033[0m\n' "$_core"
     if [ "$_count" -gt 0 ]; then
         if [ -n "$_labels" ]; then
-            printf '     Items: %s\n' "$_labels"
+            printf '     \033[90mItems: %s\033[0m\n' "$_labels"
         elif [ -n "$_core" ]; then
-            printf '     Items: Skipped (core-only)\n'
+            printf '     \033[90mItems: Skipped (core-only)\033[0m\n'
         else
-            printf '     Skipped: no items selected\n'
+            printf '     \033[90mSkipped: no items selected\033[0m\n'
         fi
     fi
 }
@@ -394,7 +399,7 @@ show_review() {
     done < "$ATOM_MANIFEST"
 
     if [ "$MODE_BASIC" -eq 1 ]; then
-        printf '\nExtras: Skipped (--basic)\n'
+        printf '\n\033[90mExtras: Skipped (--basic)\033[0m\n'
     else
         printf '\nExtras:\n'
         _enabled=$(cat "$EXTRA_SELECTED_FILE")
@@ -403,7 +408,8 @@ show_review() {
             if setup_has_word "$_enabled" "$_slot"; then
                 print_script_review extra "$_slot" "$_file" "$_description" "$_core" "$_count"
             else
-                printf '  %s. %s — Skipped: not selected\n' "$_slot" "$_description"
+                printf '  \033[97m%s. %s\033[0m\n' "$_slot" "$_description"
+                printf '     \033[90mSkipped: not selected\033[0m\n'
             fi
         done < "$EXTRA_MANIFEST"
     fi
@@ -576,7 +582,13 @@ print_summary() {
     printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
     while IFS='|' read -r _status _name _detail; do
         [ -n "$_status" ] || continue
-        printf '  %-7s %s — %s\n' "$_status" "$_name" "$_detail"
+        case "$_status" in
+            SUCCESS) _status_color=$(printf '\033[1;32m') ;;
+            SKIPPED) _status_color=$(printf '\033[90m') ;;
+            FAILED)  _status_color=$(printf '\033[1;31m') ;;
+            *)       _status_color='' ;;
+        esac
+        printf '  %s%-7s\033[0m %s — %s\n' "$_status_color" "$_status" "$_name" "$_detail"
     done < "$STATUS_FILE"
     printf '\n  success=%s skipped=%s failed=%s\n' "$_success" "$_skipped" "$_failed"
 }
