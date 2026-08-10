@@ -79,10 +79,20 @@ EXTRA_SELECTED_FILE="$STATE_DIR/extras.selected"
 FAIL_COUNT=0
 record_status() {
     _status=$1
-    _name=$2
+    _description=$2
     _detail=$3
-    printf '%s|%s|%s\n' "$_status" "$_name" "$_detail" >> "$STATUS_FILE"
+    printf '%s|%s|%s\n' "$_status" "$_description" "$_detail" >> "$STATUS_FILE"
     [ "$_status" != "FAILED" ] || FAIL_COUNT=$((FAIL_COUNT + 1))
+}
+
+status_fallback_description() {
+    _kind=$1
+    _slot=$2
+    case "$_kind" in
+        atom)  printf 'Atom slot %s\n' "$_slot" ;;
+        extra) printf 'Extra slot %s\n' "$_slot" ;;
+        *)     printf 'Setup slot %s\n' "$_slot" ;;
+    esac
 }
 
 if [ -n "${SETUP_TEST_TUXEDO:-}" ]; then
@@ -113,35 +123,34 @@ scan_directory() {
         _slot=${_base%%-*}
         case "$_slot" in
             ''|*[!0-9]*|0|0*)
-                record_status FAILED "$_kind:$_base" "invalid filename order"
+                record_status FAILED "$(status_fallback_description "$_kind" "unknown")" "invalid filename order"
                 continue
                 ;;
         esac
 
         if ! setup_validate_metadata "$_file"; then
-            record_status FAILED "$_kind:$_base" "invalid metadata"
-            continue
-        fi
-
-        _when=$(setup_when "$_file")
-        if ! setup_when_applies "$_when" "$IS_TUXEDO"; then
-            record_status SKIPPED "$_kind:$_base" "not applicable ($_when)"
+            record_status FAILED "$(status_fallback_description "$_kind" "$_slot")" "invalid metadata"
             continue
         fi
 
         _description=$(setup_description "$_file")
         _core=$(setup_core_description "$_file")
         _count=$(setup_item_count "$_file")
+        _when=$(setup_when "$_file")
+        if ! setup_when_applies "$_when" "$IS_TUXEDO"; then
+            record_status SKIPPED "$_description" "not applicable ($_when)"
+            continue
+        fi
 
         if setup_has_word "$_invalid_slots" "$_slot"; then
-            record_status FAILED "$_kind:$_base" "slot $_slot đã bị vô hiệu do duplicate"
+            record_status FAILED "$(status_fallback_description "$_kind" "$_slot")" "slot $_slot đã bị vô hiệu do duplicate"
             continue
         fi
 
         if awk -F'|' -v slot="$_slot" '$1 == slot { found=1 } END { exit !found }' "$_manifest"; then
             remove_manifest_slot "$_manifest" "$_slot"
             _invalid_slots="${_invalid_slots}${_invalid_slots:+ }$_slot"
-            record_status FAILED "$_kind:slot-$_slot" "multiple active scripts"
+            record_status FAILED "$(status_fallback_description "$_kind" "$_slot")" "multiple active scripts"
             continue
         fi
 
@@ -154,7 +163,7 @@ scan_directory() {
 
 scan_directory atom "$ATOM_DIR" "$ATOM_MANIFEST"
 if ! awk -F'|' '$1 == 1 { found=1 } END { exit !found }' "$ATOM_MANIFEST"; then
-    record_status FAILED "atom:slot-1" "không có Tuxedo/non-Tuxedo variant phù hợp"
+    record_status FAILED "$(status_fallback_description atom 1)" "không có Tuxedo/non-Tuxedo variant phù hợp"
 fi
 if [ "$MODE_BASIC" -eq 0 ]; then
     scan_directory extra "$EXTRA_DIR" "$EXTRA_MANIFEST"
@@ -509,7 +518,6 @@ run_child() {
     _file=$3
     _description=$4
     _args=$5
-    _name="$_kind:$_slot:$(basename -- "$_file")"
     info "=== Bắt đầu: $_description ($(basename -- "$_file")) ==="
     if [ -n "$_args" ]; then
         sh "$_file" $_args
@@ -519,10 +527,10 @@ run_child() {
     _code=$?
     if [ "$_code" -eq 0 ]; then
         ok "Hoàn tất: $_description"
-        record_status SUCCESS "$_name" "completed"
+        record_status SUCCESS "$_description" "completed"
     else
         warn "$_description thất bại (exit $_code) — tiếp tục"
-        record_status FAILED "$_name" "exit $_code"
+        record_status FAILED "$_description" "exit $_code"
     fi
 }
 
@@ -538,7 +546,7 @@ execute_plan() {
     done < "$ATOM_MANIFEST"
 
     if [ "$MODE_BASIC" -eq 1 ]; then
-        record_status SKIPPED extras "--basic"
+        record_status SKIPPED "Extras" "--basic"
         return
     fi
 
@@ -555,7 +563,7 @@ execute_plan() {
     while IFS='|' read -r _slot _file _description _core _count; do
         [ -n "$_slot" ] || continue
         if ! setup_has_word "$_enabled" "$_slot"; then
-            record_status SKIPPED "extra:$_slot:$(basename -- "$_file")" "not selected"
+            record_status SKIPPED "$_description" "not selected"
             continue
         fi
 
@@ -566,7 +574,7 @@ execute_plan() {
         fi
 
         if [ "$_count" -gt 0 ] && [ -z "$_args" ] && [ -z "$_core" ]; then
-            record_status SKIPPED "extra:$_slot:$(basename -- "$_file")" "no items selected"
+            record_status SKIPPED "$_description" "no items selected"
             continue
         fi
         run_child extra "$_slot" "$_file" "$_description" "$_args"
@@ -580,7 +588,7 @@ print_summary() {
     printf '\n\033[1;36m══════════════════════════════════════════\033[0m\n'
     printf '\033[1;36m  Execution summary\033[0m\n'
     printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
-    while IFS='|' read -r _status _name _detail; do
+    while IFS='|' read -r _status _description _detail; do
         [ -n "$_status" ] || continue
         case "$_status" in
             SUCCESS) _status_color=$(printf '\033[1;32m') ;;
@@ -588,7 +596,7 @@ print_summary() {
             FAILED)  _status_color=$(printf '\033[1;31m') ;;
             *)       _status_color='' ;;
         esac
-        printf '  %s%-7s\033[0m %s — %s\n' "$_status_color" "$_status" "$_name" "$_detail"
+        printf '  %s%-7s\033[0m %s — %s\n' "$_status_color" "$_status" "$_description" "$_detail"
     done < "$STATUS_FILE"
     printf '\n  success=%s skipped=%s failed=%s\n' "$_success" "$_skipped" "$_failed"
 }
