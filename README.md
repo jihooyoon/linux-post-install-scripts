@@ -23,25 +23,25 @@ Scripts for configuring Linux distros after clean install
 Full setup:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --silent
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --silent
 ```
 
 Basic setup:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic --silent
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --basic --silent
 ```
 
 Dev branch:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --dev
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh
 ```
 
 Setup with options (menu tương tác):
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh
+command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/dev/remote-setup.sh | sh -s -- --dev
 ```
 
 *Không cần `sudo` ở ngoài — `remote-setup.sh` tự gọi `sudo` khi chạy phần cài đặt (chỉ hỏi mật khẩu sudo khi cần). Cách cũ (`curl ... | sudo sh`, `sudo sh remote-setup.sh`) vẫn hoạt động.*
