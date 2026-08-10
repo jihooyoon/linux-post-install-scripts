@@ -601,6 +601,26 @@ print_summary() {
     printf '\n  success=%s skipped=%s failed=%s\n' "$_success" "$_skipped" "$_failed"
 }
 
+is_gnome_desktop() {
+    _desktop=${XDG_CURRENT_DESKTOP:-}
+    if [ -z "$_desktop" ] && [ -n "${SUDO_USER:-}" ] && command -v pgrep >/dev/null 2>&1; then
+        if pgrep -u "$SUDO_USER" -x gnome-shell >/dev/null 2>&1; then
+            _desktop=GNOME
+        fi
+    fi
+    case "$_desktop" in
+        *GNOME*) return 0 ;;
+        *)       return 1 ;;
+    esac
+}
+
+print_gnome_kimpanel_notice() {
+    if is_gnome_desktop; then
+        printf '\n\033[1;33m[GNOME]\033[0m Nên cài/bật extension KIMPanel để hiển thị bộ gõ trên status bar.\n'
+        printf '  https://extensions.gnome.org/extension/261/kimpanel\n'
+    fi
+}
+
 if [ "$MODE_ALL" -eq 0 ]; then
     if run_interactive_menu; then
         :
@@ -622,6 +642,7 @@ fi
 
 execute_plan
 print_summary
+print_gnome_kimpanel_notice
 
 if [ "$FAIL_COUNT" -gt 0 ]; then
     exit 1
