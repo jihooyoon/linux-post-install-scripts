@@ -35,7 +35,7 @@ command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL h
 Dev branch:
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --dev
+command -v curl >/dev/null 2>&1 || sudo apt-get install -y -q curl; curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/dev/remote-setup.sh | sh -s -- --dev
 ```
 
 Setup with options (menu tương tác):
