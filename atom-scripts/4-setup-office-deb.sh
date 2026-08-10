@@ -1,8 +1,9 @@
 #!/bin/sh
 # @setup-description: Cài Office
 # @setup-when: always
-# @setup-item: install_freeoffice|FreeOffice 2024
-# @setup-item: install_libreoffice|LibreOffice
+# @setup-item: install_onlyoffice|OnlyOffice (Tương thích tốt, hiệu năng ổn)
+# @setup-item: install_freeoffice|FreeOffice 2024 (Tương thích ổn, hiệu năng tốt)
+# @setup-item: install_libreoffice|LibreOffice (Tương thích kém, hiệu năng tốt)
 # 4-setup-office-deb.sh — Ubuntu/Debian: cài bộ Office tùy chọn
 # Chạy: sudo ./4-setup-office-deb.sh [--all|-a|item-number ...]
 
@@ -26,6 +27,10 @@ fi
 
 ensure_curl() {
     command -v curl >/dev/null 2>&1 || apt-get install -y curl
+}
+
+ensure_gpg() {
+    command -v gpg >/dev/null 2>&1 || apt-get install -y gpg
 }
 
 wait_apt() {
@@ -83,6 +88,27 @@ run_best_effort() {
 
 [ "$(id -u)" -eq 0 ] || die "Phải chạy với quyền root: sudo $0"
 
+purge_onlyoffice() {
+    info "Gỡ ONLYOFFICE (nếu có)..."
+    if ! dpkg -l onlyoffice-desktopeditors 2>/dev/null | grep -q '^ii' && \
+       [ ! -d /opt/onlyoffice ]; then
+        ok "ONLYOFFICE chưa được cài — bỏ qua"
+        return 0
+    fi
+
+    if dpkg -l onlyoffice-desktopeditors 2>/dev/null | grep -q '^ii'; then
+        apt-get purge -y onlyoffice-desktopeditors || return $?
+        apt-get autoremove -y --purge || return $?
+    fi
+    rm -rf /opt/onlyoffice \
+           /root/.config/onlyoffice /root/.local/share/onlyoffice /root/.cache/onlyoffice \
+           /home/*/.config/onlyoffice /home/*/.local/share/onlyoffice /home/*/.cache/onlyoffice || return $?
+    rm -f /usr/share/applications/onlyoffice-desktopeditors.desktop \
+          /usr/local/share/applications/onlyoffice-desktopeditors.desktop \
+          /usr/bin/desktopeditors /usr/local/bin/desktopeditors || return $?
+    ok "Đã gỡ sạch ONLYOFFICE"
+}
+
 purge_libreoffice() {
     info "Gỡ LibreOffice (nếu có)..."
     if dpkg -l 'libreoffice*' 2>/dev/null | grep -q '^ii'; then
@@ -109,16 +135,51 @@ purge_freeoffice() {
 }
 
 reconcile_office_selection() {
-    _want_freeoffice=0
-    _want_libreoffice=0
-    setup_has_word "$SETUP_SELECTED" 1 && _want_freeoffice=1
-    setup_has_word "$SETUP_SELECTED" 2 && _want_libreoffice=1
+    setup_has_word "$SETUP_SELECTED" 1 || run_best_effort "Gỡ ONLYOFFICE" purge_onlyoffice
+    setup_has_word "$SETUP_SELECTED" 2 || run_best_effort "Gỡ FreeOffice" purge_freeoffice
+    setup_has_word "$SETUP_SELECTED" 3 || run_best_effort "Gỡ LibreOffice" purge_libreoffice
+}
 
-    if [ "$_want_freeoffice" -eq 1 ] && [ "$_want_libreoffice" -eq 0 ]; then
-        run_best_effort "Gỡ LibreOffice" purge_libreoffice
-    elif [ "$_want_freeoffice" -eq 0 ] && [ "$_want_libreoffice" -eq 1 ]; then
-        run_best_effort "Gỡ FreeOffice" purge_freeoffice
+install_onlyoffice() {
+    if [ "$(getconf LONG_BIT 2>/dev/null || true)" != "64" ]; then
+        warn "ONLYOFFICE Desktop Editors chỉ hỗ trợ hệ thống 64-bit"
+        return 1
     fi
+
+    info "Cài ONLYOFFICE Desktop Editors..."
+    ONLYOFFICE_REPO_PATTERN='https?://download\.onlyoffice\.com/repo/debian/?([[:space:]]|$)'
+    ONLYOFFICE_REPO_FILES=$(grep -rslE "$ONLYOFFICE_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
+    if [ -n "$ONLYOFFICE_REPO_FILES" ]; then
+        warn "Đã có source ONLYOFFICE; giữ nguyên source và keyring hiện có: $(printf '%s' "$ONLYOFFICE_REPO_FILES" | tr '\n' ' ')"
+    else
+        ensure_gpg || return $?
+        mkdir -p /etc/apt/keyrings || return $?
+        ONLYOFFICE_KEY=$(mktemp /tmp/onlyoffice-key.XXXXXX.gpg) || return 1
+        rm -f "$ONLYOFFICE_KEY"
+        if ! gpg --batch --no-default-keyring --keyring "gnupg-ring:$ONLYOFFICE_KEY" \
+            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5; then
+            rm -f "$ONLYOFFICE_KEY"
+            return 1
+        fi
+        if ! chmod 644 "$ONLYOFFICE_KEY" || ! chown root:root "$ONLYOFFICE_KEY"; then
+            rm -f "$ONLYOFFICE_KEY"
+            return 1
+        fi
+        if ! mv -f "$ONLYOFFICE_KEY" /etc/apt/keyrings/onlyoffice.gpg; then
+            rm -f "$ONLYOFFICE_KEY"
+            return 1
+        fi
+        if ! printf '%s\n' \
+            'deb [signed-by=/etc/apt/keyrings/onlyoffice.gpg] https://download.onlyoffice.com/repo/debian squeeze main' \
+            > /etc/apt/sources.list.d/onlyoffice.list; then
+            return 1
+        fi
+        ok "Đã thêm source ONLYOFFICE"
+    fi
+
+    apt-get update || return $?
+    apt-get install -y onlyoffice-desktopeditors || return $?
+    ok "Đã cài ONLYOFFICE Desktop Editors"
 }
 
 install_freeoffice() {

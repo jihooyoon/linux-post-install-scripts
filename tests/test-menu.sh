@@ -82,10 +82,10 @@ IME_FILE="$ROOT/atom-scripts/3-setup-ime-deb.sh"
 OFFICE_FILE="$ROOT/atom-scripts/4-setup-office-deb.sh"
 BASIC_FILE="$ROOT/atom-scripts/5-install-basic-apps-deb.sh"
 if setup_child_prepare "$OFFICE_FILE" --all && \
-   [ "$SETUP_SELECTED" = "1 2" ]; then
-    pass "Office --all chọn đủ hai item"
+   [ "$SETUP_SELECTED" = "1 2 3" ]; then
+    pass "Office --all chọn đủ ba item"
 else
-    fail "Office --all chọn đủ hai item"
+    fail "Office --all chọn đủ ba item"
 fi
 
 if setup_child_prepare "$BASIC_FILE" --all && \
@@ -105,6 +105,7 @@ fi
 awk '/^run_best_effort\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/run-best-effort.fn"
 awk '/^reconcile_office_selection\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/reconcile-office.fn"
 awk '/^run_selected_best_effort\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/run-selected-best-effort.fn"
+awk '/^install_onlyoffice\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/install-onlyoffice.fn"
 awk '/^install_libreoffice\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/install-libreoffice.fn"
 awk '/^prepare_apt\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/office-prepare-apt.fn"
 awk '/^prepare_apt\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/basic-prepare-apt.fn"
@@ -118,6 +119,7 @@ run_office_case() {
         . "$TMP_TEST/run-best-effort.fn"
         . "$TMP_TEST/reconcile-office.fn"
         warn() { printf 'warn:%s\n' "$*"; }
+        purge_onlyoffice() { printf 'purge-onlyoffice\n'; return "$_purge_failure"; }
         purge_libreoffice() { printf 'purge-libreoffice\n'; return "$_purge_failure"; }
         purge_freeoffice() { printf 'purge-freeoffice\n'; return "$_purge_failure"; }
         SETUP_SELECTED=$_selection
@@ -125,19 +127,34 @@ run_office_case() {
     ) > "$_output" 2>&1
 }
 
-run_office_case '1 2' "$TMP_TEST/office-both.out"
-assert_not_contains "$TMP_TEST/office-both.out" "purge-" "chọn cả hai Office không purge"
+run_office_case '1 2 3' "$TMP_TEST/office-all.out"
+assert_not_contains "$TMP_TEST/office-all.out" "purge-" "chọn cả ba Office không purge"
 
-run_office_case '1' "$TMP_TEST/office-free.out"
+run_office_case '1' "$TMP_TEST/office-onlyoffice.out"
+assert_contains "$TMP_TEST/office-onlyoffice.out" "purge-freeoffice" "chỉ ONLYOFFICE thì purge FreeOffice"
+assert_contains "$TMP_TEST/office-onlyoffice.out" "purge-libreoffice" "chỉ ONLYOFFICE thì purge LibreOffice"
+assert_not_contains "$TMP_TEST/office-onlyoffice.out" "purge-onlyoffice" "chỉ ONLYOFFICE không purge ONLYOFFICE"
+
+run_office_case '2' "$TMP_TEST/office-free.out"
+assert_contains "$TMP_TEST/office-free.out" "purge-onlyoffice" "chỉ FreeOffice thì purge ONLYOFFICE"
 assert_contains "$TMP_TEST/office-free.out" "purge-libreoffice" "chỉ FreeOffice thì purge LibreOffice"
 assert_not_contains "$TMP_TEST/office-free.out" "purge-freeoffice" "chỉ FreeOffice không purge FreeOffice"
 
-run_office_case '2' "$TMP_TEST/office-libre.out"
+run_office_case '3' "$TMP_TEST/office-libre.out"
+assert_contains "$TMP_TEST/office-libre.out" "purge-onlyoffice" "chỉ LibreOffice thì purge ONLYOFFICE"
 assert_contains "$TMP_TEST/office-libre.out" "purge-freeoffice" "chỉ LibreOffice thì purge FreeOffice"
 assert_not_contains "$TMP_TEST/office-libre.out" "purge-libreoffice" "chỉ LibreOffice không purge LibreOffice"
 
-run_office_case '3' "$TMP_TEST/office-none.out"
-assert_not_contains "$TMP_TEST/office-none.out" "purge-" "không chọn Office thì không purge"
+run_office_case '1 2' "$TMP_TEST/office-only-free.out"
+assert_contains "$TMP_TEST/office-only-free.out" "purge-libreoffice" "chọn ONLYOFFICE và FreeOffice thì purge LibreOffice"
+assert_not_contains "$TMP_TEST/office-only-free.out" "purge-onlyoffice" "chọn ONLYOFFICE và FreeOffice không purge ONLYOFFICE"
+assert_not_contains "$TMP_TEST/office-only-free.out" "purge-freeoffice" "chọn ONLYOFFICE và FreeOffice không purge FreeOffice"
+
+run_office_case '1 3' "$TMP_TEST/office-only-libre.out"
+assert_contains "$TMP_TEST/office-only-libre.out" "purge-freeoffice" "chọn ONLYOFFICE và LibreOffice thì purge FreeOffice"
+
+run_office_case '2 3' "$TMP_TEST/office-free-libre.out"
+assert_contains "$TMP_TEST/office-free-libre.out" "purge-onlyoffice" "chọn FreeOffice và LibreOffice thì purge ONLYOFFICE"
 
 if run_office_case '1' "$TMP_TEST/office-purge-failure.out" 9; then
     pass "lỗi purge Office không làm child thất bại"
@@ -145,6 +162,12 @@ else
     fail "lỗi purge Office không làm child thất bại"
 fi
 assert_contains "$TMP_TEST/office-purge-failure.out" "exit 9" "lỗi purge Office được cảnh báo"
+assert_contains "$TMP_TEST/install-onlyoffice.fn" "getconf LONG_BIT" "ONLYOFFICE kiểm tra hệ thống 64-bit"
+assert_contains "$TMP_TEST/install-onlyoffice.fn" "ONLYOFFICE_REPO_PATTERN" "ONLYOFFICE kiểm tra source trùng"
+assert_contains "$TMP_TEST/install-onlyoffice.fn" 'gnupg-ring:$ONLYOFFICE_KEY' "ONLYOFFICE tạo keyring tạm"
+assert_contains "$TMP_TEST/install-onlyoffice.fn" 'mv -f "$ONLYOFFICE_KEY" /etc/apt/keyrings/onlyoffice.gpg' "ONLYOFFICE ghi keyring atomically"
+assert_contains "$TMP_TEST/install-onlyoffice.fn" "signed-by=/etc/apt/keyrings/onlyoffice.gpg" "ONLYOFFICE source dùng signed-by"
+assert_contains "$TMP_TEST/install-onlyoffice.fn" "apt-get install -y onlyoffice-desktopeditors" "ONLYOFFICE cài package chính thức"
 assert_contains "$TMP_TEST/install-libreoffice.fn" "apt-get install -y libreoffice" "LibreOffice dùng repo mặc định"
 assert_contains "$TMP_TEST/office-prepare-apt.fn" "wait_apt" "Office đợi apt lock trước khi cài"
 assert_contains "$TMP_TEST/office-prepare-apt.fn" "apt-get update" "Office cập nhật apt cache trước khi cài"
@@ -156,20 +179,18 @@ if (
     . "$TMP_TEST/run-best-effort.fn"
     . "$TMP_TEST/run-selected-best-effort.fn"
     warn() { printf 'warn:%s\n' "$*"; }
-    install_freeoffice() { printf 'called:freeoffice\n'; return 1; }
-    install_libreoffice() { printf 'called:libreoffice\n'; return 2; }
-    install_chrome() { printf 'called:chrome\n'; return 3; }
-    install_chromium() { printf 'called:chromium\n'; return 4; }
-    install_vscode() { printf 'called:vscode\n'; return 5; }
+    install_onlyoffice() { printf 'called:onlyoffice\n'; return 1; }
+    install_freeoffice() { printf 'called:freeoffice\n'; return 2; }
+    install_libreoffice() { printf 'called:libreoffice\n'; return 3; }
     CHILD_FILE="$OFFICE_FILE"
-    SETUP_SELECTED='1 2'
+    SETUP_SELECTED='1 2 3'
     run_selected_best_effort
 ) > "$TMP_TEST/office-best-effort.out" 2>&1; then
     pass "optional apps lỗi vẫn trả thành công"
 else
     fail "optional apps lỗi vẫn trả thành công"
 fi
-for app_name in freeoffice libreoffice; do
+for app_name in onlyoffice freeoffice libreoffice; do
     assert_contains "$TMP_TEST/office-best-effort.out" "called:$app_name" \
         "Office runner tiếp tục tới $app_name"
 done
@@ -292,20 +313,72 @@ CHAT_FILE="$ROOT/extras/1-install-chat-apps-deb.sh"
 awk '/^install_claude_desktop\(\)/,/^}/' "$AI_FILE" > "$TMP_TEST/claude-desktop.fn"
 awk '/^install_claude_cli\(\)/,/^}/' "$AI_FILE" > "$TMP_TEST/claude-cli.fn"
 awk '/^install_codex_cli\(\)/,/^}/' "$AI_FILE" > "$TMP_TEST/codex.fn"
+awk '/^run_best_effort\(\)/,/^}/' "$AI_FILE" > "$TMP_TEST/ai-run-best-effort.fn"
+awk '/^run_selected_best_effort\(\)/,/^}/' "$AI_FILE" > "$TMP_TEST/ai-run-selected-best-effort.fn"
 assert_not_contains "$TMP_TEST/claude-desktop.fn" "ensure_local_bin_path" "Claude Desktop không sửa PATH"
+assert_not_contains "$TMP_TEST/claude-desktop.fn" "die " "Claude Desktop trả lỗi item thay vì exit child"
+assert_contains "$TMP_TEST/claude-desktop.fn" "return 1" "Claude Desktop trả lỗi để runner tiếp tục"
 assert_not_contains "$TMP_TEST/claude-cli.fn" "ensure_gpg" "Claude CLI không cài gpg"
 assert_not_contains "$TMP_TEST/codex.fn" "ensure_gpg" "Codex CLI không cài gpg"
 assert_contains "$AI_FILE" 'sudo -u "$SUDO_USER" -H sh -c' "PATH được ghi dưới user thật"
+assert_not_contains "$AI_FILE" "setup_run_selected" "AI dùng runner best-effort riêng"
+assert_contains "$AI_FILE" "run_selected_best_effort" "AI tiếp tục sau item lỗi"
+
+if (
+    . "$ROOT/lib/setup-contract.sh"
+    . "$TMP_TEST/ai-run-best-effort.fn"
+    . "$TMP_TEST/ai-run-selected-best-effort.fn"
+    warn() { printf 'warn:%s\n' "$*"; }
+    install_claude_desktop() { printf 'called:claude-desktop\n'; return 1; }
+    install_claude_cli() { printf 'called:claude-cli\n'; return 2; }
+    install_codex_cli() { printf 'called:codex-cli\n'; return 3; }
+    CHILD_FILE="$AI_FILE"
+    SETUP_SELECTED='1 2 3'
+    run_selected_best_effort
+) > "$TMP_TEST/ai-best-effort.out" 2>&1; then
+    pass "AI item lỗi vẫn trả thành công"
+else
+    fail "AI item lỗi vẫn trả thành công"
+fi
+for app_name in claude-desktop claude-cli codex-cli; do
+    assert_contains "$TMP_TEST/ai-best-effort.out" "called:$app_name" \
+        "AI runner tiếp tục tới $app_name"
+done
 
 awk '/^install_slack\(\)/,/^}/' "$CHAT_FILE" > "$TMP_TEST/slack.fn"
 awk '/^install_mattermost\(\)/,/^}/' "$CHAT_FILE" > "$TMP_TEST/mattermost.fn"
 awk '/^install_discord\(\)/,/^}/' "$CHAT_FILE" > "$TMP_TEST/discord.fn"
+awk '/^run_best_effort\(\)/,/^}/' "$CHAT_FILE" > "$TMP_TEST/chat-run-best-effort.fn"
+awk '/^run_selected_best_effort\(\)/,/^}/' "$CHAT_FILE" > "$TMP_TEST/chat-run-selected-best-effort.fn"
 assert_contains "$TMP_TEST/slack.fn" "ensure_gpg" "Slack tự bảo đảm gpg"
 assert_contains "$TMP_TEST/slack.fn" "apt-get update" "Slack tự chạy apt update"
 assert_not_contains "$TMP_TEST/mattermost.fn" "ensure_gpg" "Mattermost không cài gpg"
 assert_not_contains "$TMP_TEST/mattermost.fn" "apt-get update" "Mattermost không apt update"
 assert_not_contains "$TMP_TEST/discord.fn" "ensure_gpg" "Discord không cài gpg"
 assert_not_contains "$TMP_TEST/discord.fn" "apt-get update" "Discord không apt update"
+assert_not_contains "$CHAT_FILE" "setup_run_selected" "Chat dùng runner best-effort riêng"
+assert_contains "$CHAT_FILE" "run_selected_best_effort" "Chat tiếp tục sau item lỗi"
+
+if (
+    . "$ROOT/lib/setup-contract.sh"
+    . "$TMP_TEST/chat-run-best-effort.fn"
+    . "$TMP_TEST/chat-run-selected-best-effort.fn"
+    warn() { printf 'warn:%s\n' "$*"; }
+    install_slack() { printf 'called:slack\n'; return 1; }
+    install_mattermost() { printf 'called:mattermost\n'; return 2; }
+    install_discord() { printf 'called:discord\n'; return 3; }
+    CHILD_FILE="$CHAT_FILE"
+    SETUP_SELECTED='1 2 3'
+    run_selected_best_effort
+) > "$TMP_TEST/chat-best-effort.out" 2>&1; then
+    pass "Chat item lỗi vẫn trả thành công"
+else
+    fail "Chat item lỗi vẫn trả thành công"
+fi
+for app_name in slack mattermost discord; do
+    assert_contains "$TMP_TEST/chat-best-effort.out" "called:$app_name" \
+        "Chat runner tiếp tục tới $app_name"
+done
 
 printf '\nTests: pass=%s fail=%s\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
