@@ -51,15 +51,15 @@ wait_apt() {
 
 ensure_curl() {
     if ! command -v curl >/dev/null 2>&1; then
-        wait_apt
-        apt-get install -y curl
+        wait_apt || return $?
+        apt-get install -y curl || return $?
     fi
 }
 
 ensure_gpg() {
     if ! command -v gpg >/dev/null 2>&1; then
-        wait_apt
-        apt-get install -y gnupg
+        wait_apt || return $?
+        apt-get install -y gnupg || return $?
     fi
 }
 
@@ -83,10 +83,22 @@ ensure_local_bin_path() {
                 rc=$1
                 printf "\n# Thêm ~/.local/bin vào PATH (do AI tools setup)\n%s\n" \
                     '\''export PATH="$HOME/.local/bin:$PATH"'\'' >> "$rc"
-            ' sh "$rc"
+            ' sh "$rc" || return $?
             ok "Đã thêm ~/.local/bin vào PATH trong $(basename "$rc")"
         fi
     done
+}
+
+run_best_effort() {
+    _label=$1
+    _function=$2
+    if "$_function"; then
+        return 0
+    else
+        _code=$?
+    fi
+    warn "$_label thất bại (exit $_code) — tiếp tục"
+    return 0
 }
 
 # ============================================================
@@ -95,32 +107,41 @@ ensure_local_bin_path() {
 
 # --- Mục 1: Claude Desktop ---
 install_claude_desktop() {
-    ensure_curl
-    ensure_gpg
+    ensure_curl || return $?
+    ensure_gpg || return $?
     info "Thêm apt repository của Claude Desktop..."
     CLAUDE_DESKTOP_REPO_PATTERN='https?://downloads\.claude\.ai/claude-desktop/apt/stable/?([[:space:]]|$)'
     CLAUDE_DESKTOP_REPO_FILES=$(grep -rslE "$CLAUDE_DESKTOP_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
     if [ -n "$CLAUDE_DESKTOP_REPO_FILES" ]; then
         warn "Đã có source Claude Desktop; giữ nguyên và không thêm source mới: $(printf '%s' "$CLAUDE_DESKTOP_REPO_FILES" | tr '\n' ' ')"
     else
-        curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc \
-            https://downloads.claude.ai/claude-desktop/key.asc
+        mkdir -p /usr/share/keyrings || return $?
+        if ! curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+            https://downloads.claude.ai/claude-desktop/key.asc; then
+            return 1
+        fi
 
         # Xác minh vân tay khóa theo guide (tránh khóa giả mạo)
         FPR=$(gpg --show-keys --with-colons /usr/share/keyrings/claude-desktop-archive-keyring.asc 2>/dev/null \
               | awk -F: '$1=="fpr"{print $10; exit}')
-        [ "$FPR" = "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ] \
-            || die "Khóa tải về không khớp vân tay Anthropic (nhận: $FPR) — kiểm tra kết nối downloads.claude.ai"
+        if [ "$FPR" != "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ]; then
+            rm -f /usr/share/keyrings/claude-desktop-archive-keyring.asc
+            warn "Khóa tải về không khớp vân tay Anthropic (nhận: $FPR) — bỏ qua Claude Desktop"
+            return 1
+        fi
         ok "Đã xác minh khóa Anthropic"
 
-        echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
-            > /etc/apt/sources.list.d/claude-desktop.list
+        if ! printf '%s\n' \
+            "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
+            > /etc/apt/sources.list.d/claude-desktop.list; then
+            return 1
+        fi
     fi
 
     info "Cài Claude Desktop..."
-    wait_apt
-    apt-get update
-    apt-get install -y claude-desktop
+    wait_apt || return $?
+    apt-get update || return $?
+    apt-get install -y claude-desktop || return $?
     ok "Đã cài claude-desktop (cập nhật qua apt như bình thường)"
 }
 
@@ -128,19 +149,33 @@ install_claude_desktop() {
 install_claude_cli() {
     info "Cài Claude Code CLI..."
     if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-        ensure_curl
+        ensure_curl || return $?
         HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-        curl -fsSL https://claude.ai/install.sh -o /tmp/claude-install.sh
-        sudo -u "$SUDO_USER" -H bash /tmp/claude-install.sh
-        rm -f /tmp/claude-install.sh
+        [ -n "$HOME_USER" ] || { warn "Không tìm thấy home của $SUDO_USER"; return 1; }
+        CLAUDE_INSTALL=$(mktemp /tmp/claude-install.XXXXXX.sh) || return 1
+        if ! curl -fsSL https://claude.ai/install.sh -o "$CLAUDE_INSTALL"; then
+            rm -f "$CLAUDE_INSTALL"
+            return 1
+        fi
+        if ! chmod 644 "$CLAUDE_INSTALL"; then
+            rm -f "$CLAUDE_INSTALL"
+            return 1
+        fi
+        if ! sudo -u "$SUDO_USER" -H bash "$CLAUDE_INSTALL"; then
+            rm -f "$CLAUDE_INSTALL"
+            return 1
+        fi
+        rm -f "$CLAUDE_INSTALL"
         if [ -x "$HOME_USER/.local/bin/claude" ]; then
             ok "Đã cài Claude Code CLI cho user $SUDO_USER (tự cập nhật trong nền)"
         else
             warn "Không thấy ~/.local/bin/claude — kiểm tra lại quá trình cài"
+            return 1
         fi
-        ensure_local_bin_path
+        ensure_local_bin_path || return $?
     else
         warn "Không xác định được user (chạy không qua sudo) — bỏ qua Claude Code CLI"
+        return 1
     fi
 }
 
@@ -148,19 +183,49 @@ install_claude_cli() {
 install_codex_cli() {
     info "Cài Codex CLI..."
     if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-        ensure_curl
+        ensure_curl || return $?
         HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-        sudo -u "$SUDO_USER" -H env CODEX_NON_INTERACTIVE=1 \
-            bash -c 'curl -fsSL https://chatgpt.com/codex/install.sh | sh'
+        [ -n "$HOME_USER" ] || { warn "Không tìm thấy home của $SUDO_USER"; return 1; }
+        CODEX_INSTALL=$(mktemp /tmp/codex-install.XXXXXX.sh) || return 1
+        if ! curl -fsSL https://chatgpt.com/codex/install.sh -o "$CODEX_INSTALL"; then
+            rm -f "$CODEX_INSTALL"
+            return 1
+        fi
+        if ! chmod 644 "$CODEX_INSTALL"; then
+            rm -f "$CODEX_INSTALL"
+            return 1
+        fi
+        if ! sudo -u "$SUDO_USER" -H env CODEX_NON_INTERACTIVE=1 sh "$CODEX_INSTALL"; then
+            rm -f "$CODEX_INSTALL"
+            return 1
+        fi
+        rm -f "$CODEX_INSTALL"
         if [ -x "$HOME_USER/.local/bin/codex" ]; then
             ok "Đã cài Codex CLI cho user $SUDO_USER"
         else
             warn "Không thấy ~/.local/bin/codex — kiểm tra lại quá trình cài"
+            return 1
         fi
-        ensure_local_bin_path
+        ensure_local_bin_path || return $?
     else
         warn "Không xác định được user (chạy không qua sudo) — bỏ qua Codex CLI"
+        return 1
     fi
+}
+
+run_selected_best_effort() {
+    _selected_items=$(setup_items "$CHILD_FILE")
+    _selected_item_index=1
+    while IFS='|' read -r _selected_function _selected_label; do
+        [ -n "$_selected_function" ] || continue
+        if setup_has_word "$SETUP_SELECTED" "$_selected_item_index"; then
+            printf '\n\033[1;36m[item]\033[0m %d) %s\n' "$_selected_item_index" "$_selected_label"
+            run_best_effort "$_selected_label" "$_selected_function"
+        fi
+        _selected_item_index=$((_selected_item_index + 1))
+    done <<EOF
+$_selected_items
+EOF
 }
 
 if [ -z "$SETUP_SELECTED" ]; then
@@ -168,6 +233,6 @@ if [ -z "$SETUP_SELECTED" ]; then
     exit 0
 fi
 
-setup_run_selected "$CHILD_FILE" "$SETUP_SELECTED"
+run_selected_best_effort
 
 printf '\n\033[1;32mHoàn tất các AI tool đã chọn!\033[0m\n'

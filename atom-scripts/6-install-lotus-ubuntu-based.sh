@@ -1,10 +1,10 @@
 #!/bin/sh
-# @setup-description: Cài bộ gõ tiếng Việt Lotus
+# @setup-description: Cài & cấu hình bộ gõ tiếng Việt Lotus
 # @setup-when: always
-# @setup-core-description: Cài và cấu hình fcitx5-lotus
-# 4-install-lotus-ubuntu-based.sh — Cài bộ gõ tiếng Việt Lotus (fcitx5-lotus) cho fcitx5
+# @setup-core-description: Cài và cấu hình fcitx5-lotus (không gạch chân -- tránh conflict autocomplete, cover hầu hết các app)
+# 6-install-lotus-ubuntu-based.sh — Cài bộ gõ tiếng Việt Lotus (fcitx5-lotus) cho fcitx5
 # Nguồn repo: https://fcitx5-lotus.pages.dev (hỗ trợ Ubuntu-based)
-# Chạy: sudo ./4-install-lotus-ubuntu-based.sh
+# Chạy: sudo ./6-install-lotus-ubuntu-based.sh
 
 set -e
 
@@ -320,6 +320,6 @@ else
 fi
 
 printf '\nCách gõ: \033[1mCtrl+Space\033[0m để chuyển giữa bàn phím tiếng Anh và \033[1mLotus\033[0m (đã thêm sẵn vào profile).\n'
-printf 'Gợi ý: nên dùng cùng fcitx5 (3-install-basic-apps-deb.sh đã cài sẵn).\n'
+printf 'Gợi ý: nên dùng cùng fcitx5 (3-setup-ime-deb.sh đã cài sẵn).\n'
 printf 'Nếu app X11 GTK3 cũ không gõ được: thêm GTK_IM_MODULE=fcitx vào /etc/environment.d/fcitx5.conf.\n'
 printf 'KDE chạy phiên X11 (không phải Wayland): cần thêm QT_IM_MODULE=fcitx vào file đó.\n'

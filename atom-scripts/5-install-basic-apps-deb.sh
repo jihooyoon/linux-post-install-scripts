@@ -1,14 +1,11 @@
 #!/bin/sh
-# @setup-description: Cài nền bộ gõ và các app cơ bản
+# @setup-description: Cài các app cơ bản
 # @setup-when: always
-# @setup-core-description: Dùng fcitx5 thay thế ibus (đã lỗi thời)
-# @setup-item: install_freeoffice|FreeOffice 2024
-# @setup-item: install_libreoffice|LibreOffice
 # @setup-item: install_chrome|Google Chrome
 # @setup-item: install_chromium|Chromium (.deb thật)
 # @setup-item: install_vscode|Visual Studio Code
-# 3-install-basic-apps-deb.sh — Ubuntu/Debian: cài fcitx5 và các ứng dụng cơ bản tùy chọn
-# Chạy: sudo ./3-install-basic-apps-deb.sh [--all|-a|item-number ...]
+# 5-install-basic-apps-deb.sh — Ubuntu/Debian: cài các ứng dụng cơ bản tùy chọn
+# Chạy: sudo ./5-install-basic-apps-deb.sh [--all|-a|item-number ...]
 
 set -e
 
@@ -29,6 +26,10 @@ if [ "$SETUP_SHOW_HELP" -eq 1 ]; then
     exit 0
 fi
 
+ensure_curl() {
+    command -v curl >/dev/null 2>&1 || apt-get install -y curl
+}
+
 wait_apt() {
     _i=0
     while [ "$_i" -lt 60 ]; do
@@ -48,25 +49,9 @@ wait_apt() {
     sleep 2
 }
 
-ensure_curl() {
-    command -v curl >/dev/null 2>&1 || apt-get install -y curl
-}
-
-run_remote_script() {
-    _url=$1
-    _prefix=$2
-    _script=$(mktemp "/tmp/${_prefix}.XXXXXX.sh") || return 1
-    if ! curl -fsSL "$_url" -o "$_script"; then
-        rm -f "$_script"
-        return 1
-    fi
-    if bash "$_script"; then
-        _code=0
-    else
-        _code=$?
-    fi
-    rm -f "$_script"
-    return "$_code"
+prepare_apt() {
+    wait_apt
+    apt-get update
 }
 
 run_best_effort() {
@@ -88,66 +73,7 @@ run_best_effort() {
 # Các hàm cài đặt (mỗi hàm = 1 mục trong menu)
 # ============================================================
 
-# --- Reconcile hai bộ Office trước khi cài item ---
-purge_libreoffice() {
-    info "Gỡ LibreOffice (nếu có)..."
-    if dpkg -l 'libreoffice*' 2>/dev/null | grep -q '^ii'; then
-        apt-get purge -y 'libreoffice*' || return $?
-        apt-get autoremove -y --purge || return $?
-        rm -rf /root/.config/libreoffice /root/.cache/libreoffice \
-               /home/*/.config/libreoffice /home/*/.cache/libreoffice || return $?
-        ok "Đã gỡ sạch LibreOffice"
-    else
-        ok "LibreOffice chưa được cài — bỏ qua"
-    fi
-}
-
-purge_freeoffice() {
-    info "Gỡ FreeOffice (nếu có)..."
-    if ! dpkg -l 'softmaker-freeoffice*' 2>/dev/null | grep -q '^ii' && \
-       [ ! -d /usr/share/freeoffice2024 ]; then
-        ok "FreeOffice chưa được cài — bỏ qua"
-        return 0
-    fi
-
-    ensure_curl || return $?
-    run_remote_script \
-        https://softmaker.net/down/uninstall-softmaker-freeoffice-2024.sh \
-        uninstall-freeoffice || return $?
-    ok "Đã gỡ FreeOffice 2024"
-}
-
-reconcile_office_selection() {
-    _want_freeoffice=0
-    _want_libreoffice=0
-    setup_has_word "$SETUP_SELECTED" 1 && _want_freeoffice=1
-    setup_has_word "$SETUP_SELECTED" 2 && _want_libreoffice=1
-
-    if [ "$_want_freeoffice" -eq 1 ] && [ "$_want_libreoffice" -eq 0 ]; then
-        run_best_effort "Gỡ LibreOffice" purge_libreoffice
-    elif [ "$_want_freeoffice" -eq 0 ] && [ "$_want_libreoffice" -eq 1 ]; then
-        run_best_effort "Gỡ FreeOffice" purge_freeoffice
-    fi
-}
-
-# --- Mục 1: Cài FreeOffice 2024 ---
-install_freeoffice() {
-    info "Cài FreeOffice 2024..."
-    ensure_curl || return $?
-    run_remote_script \
-        https://softmaker.net/down/install-softmaker-freeoffice-2024.sh \
-        install-freeoffice || return $?
-    ok "Đã cài FreeOffice 2024"
-}
-
-# --- Mục 2: Cài LibreOffice từ repo mặc định ---
-install_libreoffice() {
-    info "Cài LibreOffice từ repo mặc định của distro..."
-    apt-get install -y libreoffice || return $?
-    ok "Đã cài LibreOffice"
-}
-
-# --- Mục 3: Cài Google Chrome ---
+# --- Mục 1: Cài Google Chrome ---
 install_chrome() {
     info "Cài Google Chrome..."
     CHROME_REPO_PATTERN='https?://dl\.google\.com/linux/chrome/deb/?([[:space:]]|$)'
@@ -177,7 +103,7 @@ install_chrome() {
     ok "Đã cài Google Chrome"
 }
 
-# --- Mục 4: Cài Chromium (.deb thật) ---
+# --- Mục 2: Cài Chromium (.deb thật) ---
 install_chromium() {
     info "Cài Chromium..."
     HAS_CHROMIUM=0
@@ -252,7 +178,7 @@ install_chromium() {
     ok "Đã cài Chromium"
 }
 
-# --- Mục 5: Cài Visual Studio Code ---
+# --- Mục 3: Cài Visual Studio Code ---
 install_vscode() {
     info "Cài Visual Studio Code..."
     # /repos/code là source APT chính thức hiện tại. /repos/vscode là source legacy
@@ -293,121 +219,27 @@ install_vscode() {
 }
 
 run_selected_best_effort() {
-    _items=$(setup_items "$CHILD_FILE")
-    _i=1
-    while IFS='|' read -r _function _label; do
-        [ -n "$_function" ] || continue
-        if setup_has_word "$SETUP_SELECTED" "$_i"; then
-            printf '\n\033[1;36m[item]\033[0m %d) %s\n' "$_i" "$_label"
-            run_best_effort "$_label" "$_function"
+    _selected_items=$(setup_items "$CHILD_FILE")
+    _selected_item_index=1
+    while IFS='|' read -r _selected_function _selected_label; do
+        [ -n "$_selected_function" ] || continue
+        if setup_has_word "$SETUP_SELECTED" "$_selected_item_index"; then
+            printf '\n\033[1;36m[item]\033[0m %d) %s\n' "$_selected_item_index" "$_selected_label"
+            run_best_effort "$_selected_label" "$_selected_function"
         fi
-        _i=$((_i + 1))
+        _selected_item_index=$((_selected_item_index + 1))
     done <<EOF
-$_items
+$_selected_items
 EOF
 }
 
-# ============================================================
-# Luôn chạy (không cần chọn)
-# ============================================================
-
-# --- Bước 0: Cập nhật danh sách gói ---
-info "Bước 0: Cập nhật danh sách gói..."
-wait_apt
-apt-get update
-
-# --- Bước 1: Cài fcitx5 + config GUI (+ KCM module nếu KDE) ---
-info "Bước 1: Cài fcitx5..."
-PKGS="fcitx5 fcitx5-config-qt"
-
-KIM=0
-case "$XDG_CURRENT_DESKTOP" in
-    *KDE*|*Plasma*)
-        PKGS="$PKGS kde-config-fcitx5"
-        info "Phát hiện KDE — thêm kde-config-fcitx5 (module cấu hình trong System Settings)"
-        ;;
-    *GNOME*)
-        if apt-cache show gnome-shell-extension-manager >/dev/null 2>&1; then
-            PKGS="$PKGS gnome-shell-extension-manager"
-            info "Phát hiện GNOME — cài thêm Extension Manager (quản lý extension kimpanel)"
-        else
-            warn "GNOME: repo không có gnome-shell-extension-manager — nếu cần thì cài qua flatpak com.mattjakeman.ExtensionManager"
-        fi
-        if apt-cache show gnome-shell-extension-kimpanel >/dev/null 2>&1; then
-            PKGS="$PKGS gnome-shell-extension-kimpanel"
-            KIM=1
-            info "Phát hiện GNOME — thêm kimpanel (hiển thị bộ gõ trên status bar)"
-        else
-            warn "GNOME: repo không có gnome-shell-extension-kimpanel — cài thủ công từ extensions.gnome.org/extension/261"
-        fi
-        ;;
-esac
-
-for eng in fcitx5-unikey fcitx5-bamboo; do
-    if apt-cache show "$eng" >/dev/null 2>&1; then
-        PKGS="$PKGS $eng"
-        info "Có gói $eng — cài thêm bộ gõ tiếng Việt"
-    else
-        warn "Repo không có $eng — bỏ qua (fcitx5 vẫn gõ được tiếng khác)"
-    fi
-done
-
-apt-get install -y $PKGS
-
-if [ "$KIM" -eq 1 ]; then
-    if [ -n "$SUDO_USER" ]; then
-        sudo -u "$SUDO_USER" gnome-extensions enable kimpanel@wengxt 2>/dev/null || true
-    fi
-    ok "Đã cài kimpanel — đăng xuất/đăng nhập lại, bộ gõ sẽ hiện trên status bar"
-    printf 'Nếu chưa thấy bộ gõ: mở app "Extensions" (gnome-extensions-app) và bật kimpanel.\n'
-fi
-
-# --- Bước 1b: Purge ibus + autostart fcitx5 ---
-info "Bước 1b: Purge ibus và thêm fcitx5 vào autostart..."
-if dpkg -l ibus 2>/dev/null | grep -q '^ii'; then
-    apt-get purge -y ibus
-    apt-get autoremove -y --purge
-    rm -rf /root/.config/ibus /root/.cache/ibus \
-           /home/*/.config/ibus /home/*/.cache/ibus
-    ok "Đã purge sạch ibus"
-else
-    ok "ibus chưa được cài — bỏ qua"
-fi
-
-if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-    HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-    AUTOSTART="$HOME_USER/.config/autostart"
-    sudo -u "$SUDO_USER" mkdir -p "$AUTOSTART"
-    if [ -f /usr/share/applications/org.fcitx.Fcitx5.desktop ]; then
-        sudo -u "$SUDO_USER" cp /usr/share/applications/org.fcitx.Fcitx5.desktop "$AUTOSTART/"
-    else
-        cat > "$AUTOSTART/org.fcitx.Fcitx5.desktop" <<'DESKTOP_EOF'
-[Desktop Entry]
-Type=Application
-Name=fcitx5
-Comment=Start fcitx5 input method framework
-Exec=fcitx5
-Icon=fcitx
-Terminal=false
-X-GNOME-Autostart-enabled=true
-X-GNOME-Autostart-Phase=Applications
-DESKTOP_EOF
-        chown "$SUDO_USER" "$AUTOSTART/org.fcitx.Fcitx5.desktop"
-    fi
-    ok "Đã thêm fcitx5 vào autostart của $SUDO_USER"
-else
-    warn "Không xác định được user — bỏ qua bước autostart"
-fi
-
-ok "Đã cài fcitx5 (đăng xuất/đăng nhập lại để áp dụng)"
-
 if [ -z "$SETUP_SELECTED" ]; then
-    warn "Không chọn ứng dụng tùy chọn — chỉ chạy phần core"
+    warn "Không chọn ứng dụng tùy chọn — không thực hiện thay đổi"
 else
-    reconcile_office_selection
+    prepare_apt
     run_selected_best_effort
 fi
 
 printf '\n\033[1;32mHoàn tất!\033[0m Tóm tắt:\n'
-printf '  - fcitx5: cài xong, đã purge ibus, autostart sẵn (đăng xuất/đăng nhập lại)\n'
 [ -n "$SETUP_SELECTED" ] && printf '  - Các item đã chọn: %s\n' "$SETUP_SELECTED"
+exit 0

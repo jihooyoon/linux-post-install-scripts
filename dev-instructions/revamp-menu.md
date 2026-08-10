@@ -32,8 +32,9 @@ Script con không còn menu và không đọc `/dev/tty`.
 
 ### Atom scripts
 
-- De-snap, Tuxedo generalization, Flatpak/Flathub và Lotus: toàn bộ logic hiện tại là core.
-- Basic Apps: apt update, fcitx5, purge ibus và autostart là core; FreeOffice, LibreOffice, Chrome, Chromium và VS Code là item.
+- De-snap, Tuxedo generalization, Flatpak/Flathub, IME (fcitx5) và Lotus: toàn bộ logic hiện tại là core.
+- Office: FreeOffice và LibreOffice là item; khi chỉ chọn một bộ thì gỡ best-effort bộ còn lại.
+- Basic Apps: Chrome, Chromium và VS Code là item; không có core.
 
 ### Extras
 
@@ -59,8 +60,10 @@ Atom scripts dùng order slot:
 
 1. De-snap (`when=non-tuxedo`) và Tuxedo generalization (`when=tuxedo`) cùng prefix `1-`.
 2. Flatpak/Flathub.
-3. Basic Apps.
-4. Lotus.
+3. IME (fcitx5).
+4. Office.
+5. Basic Apps.
+6. Lotus.
 
 Extras đánh số độc lập theo thứ tự hiện tại: `1` AI Tools, `2` IME Shortcut, `3` Chat Apps, `4` Dev Tools.
 
@@ -72,11 +75,12 @@ Parent chỉ scan `<số>-*.sh`, lọc `when` theo `/etc/os-release` trước kh
 
 - Không cờ: menu tương tác.
 - `--all`: chọn toàn bộ atom items và extras, không hiện menu.
-- `--silent`: như `--all` và truyền `--all` xuống mọi child trong execution plan.
-- `--basic`: loại extras khỏi menu và execution; kết hợp được với `--all` hoặc `--silent`.
+- `--pack-ms`: chọn OnlyOffice; các script và item khác chọn tất cả.
+- `--pack-bs`: chọn OnlyOffice, Chrome, Mattermost, shortcut IME và Claude Desktop; skip Node.js Dev Tools.
+- Ba preset loại trừ lẫn nhau; parent ghi lựa chọn vào cùng state với menu rồi execution đọc state đó.
 - Unknown flag báo lỗi trước execution.
 
-`remote-setup.sh` luôn gọi entrypoint mới và tiếp tục hỗ trợ `--dev`, `--basic`, `--silent` cùng các tổ hợp.
+`remote-setup.sh` chỉ dùng `--dev` để chọn branch source và passthrough mọi argument còn lại sang entrypoint; `DEBUG=1` được preserve qua sudo.
 
 ### Flow và điều hướng
 
@@ -108,7 +112,7 @@ Atom luôn nằm trong execution plan; `s` chỉ chạy core. Extra có core nh�
 - Metadata thêm/xoá item tự đổi range; metadata/token/order sai bị reject.
 - Tuxedo/non-Tuxedo chỉ chọn đúng một variant slot `1`.
 - Menu xử lý input rỗng/sai, all, số, skip, Back, Review, Run và Quit.
-- CLI matrix gồm interactive, `--all`, `--silent`, `--basic`, `--basic --all`, `--basic --silent`.
+- CLI matrix gồm interactive, `--all`, `--pack-ms`, `--pack-bs` và reject preset trộn/lặp.
 - AI/Chat no-argument không gọi apt/curl/gpg/network và không sửa PATH.
 - Claude Desktop không sửa PATH; Claude/Codex CLI không cài `gpg` và cập nhật PATH idempotent dưới đúng user.
 - Mattermost/Discord không gọi `gpg` hoặc `apt-get update`; Slack có gọi.

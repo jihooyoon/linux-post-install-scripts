@@ -50,16 +50,28 @@ wait_apt() {
 
 ensure_curl() {
     if ! command -v curl >/dev/null 2>&1; then
-        wait_apt
-        apt-get install -y curl
+        wait_apt || return $?
+        apt-get install -y curl || return $?
     fi
 }
 
 ensure_gpg() {
     if ! command -v gpg >/dev/null 2>&1; then
-        wait_apt
-        apt-get install -y gpg
+        wait_apt || return $?
+        apt-get install -y gpg || return $?
     fi
+}
+
+run_best_effort() {
+    _label=$1
+    _function=$2
+    if "$_function"; then
+        return 0
+    else
+        _code=$?
+    fi
+    warn "$_label thất bại (exit $_code) — tiếp tục"
+    return 0
 }
 
 # ============================================================
@@ -68,39 +80,51 @@ ensure_gpg() {
 
 # --- Mục 1: Slack ---
 install_slack() {
-    ensure_curl
-    ensure_gpg
+    ensure_curl || return $?
+    ensure_gpg || return $?
     info "Cài Slack..."
     SLACK_REPO_PATTERN='https?://packagecloud\.io/slacktechnologies/slack/debian/?([[:space:]]|$)'
     SLACK_REPO_FILES=$(grep -rslE "$SLACK_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
     if [ -n "$SLACK_REPO_FILES" ]; then
         warn "Đã có source Slack; giữ nguyên và không thêm source mới: $(printf '%s' "$SLACK_REPO_FILES" | tr '\n' ' ')"
     else
-        mkdir -p /etc/apt/keyrings
-        curl -fsSL https://packagecloud.io/slacktechnologies/slack/gpgkey \
-            | gpg --yes --dearmor -o /etc/apt/keyrings/slack.gpg
-        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/slack.gpg] https://packagecloud.io/slacktechnologies/slack/debian/ jessie main" \
-            > /etc/apt/sources.list.d/slack.list
+        mkdir -p /etc/apt/keyrings || return $?
+        if ! curl -fsSL https://packagecloud.io/slacktechnologies/slack/gpgkey \
+            | gpg --yes --dearmor -o /etc/apt/keyrings/slack.gpg; then
+            return 1
+        fi
+        if ! printf '%s\n' \
+            "deb [arch=amd64 signed-by=/etc/apt/keyrings/slack.gpg] https://packagecloud.io/slacktechnologies/slack/debian/ jessie main" \
+            > /etc/apt/sources.list.d/slack.list; then
+            return 1
+        fi
     fi
-    wait_apt
-    apt-get update
-    apt-get install -y slack-desktop
+    wait_apt || return $?
+    apt-get update || return $?
+    apt-get install -y slack-desktop || return $?
     ok "Đã cài Slack"
 }
 
 # --- Mục 2: Mattermost Desktop ---
 install_mattermost() {
-    ensure_curl
+    ensure_curl || return $?
     info "Cài Mattermost Desktop..."
     MM_URL=$(curl -s https://api.github.com/repos/mattermost/desktop/releases/latest \
         | grep -oP '"browser_download_url":\s*"\K[^"]*amd64\.deb[^"]*' | head -1)
     if [ -z "$MM_URL" ]; then
         warn "Không lấy được URL tải Mattermost — bỏ qua"
+        return 1
     else
-        MM_DEB=/tmp/mattermost-desktop.deb
-        curl -fsSL -o "$MM_DEB" "$MM_URL"
-        wait_apt
-        apt-get install -y "$MM_DEB"
+        MM_DEB=$(mktemp /tmp/mattermost-desktop.XXXXXX.deb) || return 1
+        if ! curl -fsSL -o "$MM_DEB" "$MM_URL"; then
+            rm -f "$MM_DEB"
+            return 1
+        fi
+        wait_apt || { rm -f "$MM_DEB"; return 1; }
+        if ! apt-get install -y "$MM_DEB"; then
+            rm -f "$MM_DEB"
+            return 1
+        fi
         rm -f "$MM_DEB"
         ok "Đã cài Mattermost Desktop"
     fi
@@ -108,14 +132,35 @@ install_mattermost() {
 
 # --- Mục 3: Discord ---
 install_discord() {
-    ensure_curl
+    ensure_curl || return $?
     info "Cài Discord..."
-    DISCORD_DEB=/tmp/discord.deb
-    curl -fsSL -o "$DISCORD_DEB" 'https://discord.com/api/download/stable?platform=linux&format=deb'
-    wait_apt
-    apt-get install -y "$DISCORD_DEB"
+    DISCORD_DEB=$(mktemp /tmp/discord.XXXXXX.deb) || return 1
+    if ! curl -fsSL -o "$DISCORD_DEB" 'https://discord.com/api/download/stable?platform=linux&format=deb'; then
+        rm -f "$DISCORD_DEB"
+        return 1
+    fi
+    wait_apt || { rm -f "$DISCORD_DEB"; return 1; }
+    if ! apt-get install -y "$DISCORD_DEB"; then
+        rm -f "$DISCORD_DEB"
+        return 1
+    fi
     rm -f "$DISCORD_DEB"
     ok "Đã cài Discord"
+}
+
+run_selected_best_effort() {
+    _selected_items=$(setup_items "$CHILD_FILE")
+    _selected_item_index=1
+    while IFS='|' read -r _selected_function _selected_label; do
+        [ -n "$_selected_function" ] || continue
+        if setup_has_word "$SETUP_SELECTED" "$_selected_item_index"; then
+            printf '\n\033[1;36m[item]\033[0m %d) %s\n' "$_selected_item_index" "$_selected_label"
+            run_best_effort "$_selected_label" "$_selected_function"
+        fi
+        _selected_item_index=$((_selected_item_index + 1))
+    done <<EOF
+$_selected_items
+EOF
 }
 
 if [ -z "$SETUP_SELECTED" ]; then
@@ -123,6 +168,6 @@ if [ -z "$SETUP_SELECTED" ]; then
     exit 0
 fi
 
-setup_run_selected "$CHILD_FILE" "$SETUP_SELECTED"
+run_selected_best_effort
 
 printf '\n\033[1;32mHoàn tất các chat app đã chọn!\033[0m\n'
