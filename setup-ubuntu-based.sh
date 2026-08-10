@@ -8,6 +8,12 @@ ok()   { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*"; }
 die()  { printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 
+clear_menu_screen() {
+    [ "${SETUP_TEST_MODE:-0}" = "1" ] && return
+    [ -t 1 ] || return
+    printf '\033[H\033[2J'
+}
+
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$SCRIPT_DIR/lib/setup-contract.sh"
 
@@ -425,6 +431,7 @@ EOF
 
         case "$_type" in
             items)
+                clear_menu_screen
                 while :; do
                     show_item_stage "$_kind" "$_slot" "$_file" "$_description"
                     read_menu_choice
@@ -446,6 +453,7 @@ EOF
                 esac
                 ;;
             extras)
+                clear_menu_screen
                 while :; do
                     show_extra_stage
                     read_menu_choice
@@ -468,6 +476,7 @@ EOF
                 esac
                 ;;
             review)
+                clear_menu_screen
                 show_review
                 read_menu_choice
                 case "$MENU_CHOICE" in
