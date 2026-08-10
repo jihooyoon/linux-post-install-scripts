@@ -1,7 +1,7 @@
 #!/bin/sh
-# @setup-description: Gỡ Snap và thay thế ứng dụng bằng gói deb
+# @setup-description: De-bloat Ubuntu-based
 # @setup-when: non-tuxedo
-# @setup-core-description: Gỡ snap/snapd, cài Firefox deb và pin Thunderbird
+# @setup-core-description: De-snap, thay bằng deb
 # 1-del-snap-n-replace-apps.sh — Gỡ toàn bộ snap packages và snapd, cài lại Firefox .deb + pin Thunderbird tránh snap
 # Chạy: sudo ./1-del-snap-n-replace-apps.sh
 # Lưu ý: trên Ubuntu 22.04+, việc purge snapd có thể kéo theo việc

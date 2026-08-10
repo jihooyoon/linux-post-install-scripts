@@ -1,7 +1,7 @@
 #!/bin/sh
-# @setup-description: Cài bộ gõ tiếng Việt Lotus cho fcitx5
+# @setup-description: Cài bộ gõ tiếng Việt Lotus
 # @setup-when: always
-# @setup-core-description: Cài repository, package và cấu hình fcitx5-lotus
+# @setup-core-description: Cài và cấu hình fcitx5-lotus
 # 4-install-lotus-ubuntu-based.sh — Cài bộ gõ tiếng Việt Lotus (fcitx5-lotus) cho fcitx5
 # Nguồn repo: https://fcitx5-lotus.pages.dev (hỗ trợ Ubuntu-based)
 # Chạy: sudo ./4-install-lotus-ubuntu-based.sh

@@ -1,7 +1,7 @@
 #!/bin/sh
-# @setup-description: Cài fcitx5 và các ứng dụng desktop cơ bản
+# @setup-description: Cài nền bộ gõ và các app cơ bản
 # @setup-when: always
-# @setup-core-description: Cập nhật apt, cài fcitx5, purge ibus và cấu hình autostart
+# @setup-core-description: Dùng fcitx5 thay thế ibus (đã lỗi thời)
 # @setup-item: install_freeoffice|LibreOffice → FreeOffice (gỡ LO, cài FreeOffice)
 # @setup-item: install_chrome|Google Chrome
 # @setup-item: install_chromium|Chromium (.deb thật)

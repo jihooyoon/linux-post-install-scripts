@@ -1,7 +1,7 @@
 #!/bin/sh
-# @setup-description: Thiết lập phím tắt chuyển input method cho GNOME/KDE
+# @setup-description: Đặt shortcut chuyển vi/en (Alt + Space cho GNOME / Win + Space cho KDE)
 # @setup-when: always
-# @setup-core-description: Cấu hình phím tắt fcitx5 phù hợp desktop hiện tại
+# @setup-core-description: Cấu hình shortcut
 # 2-set-ime-shortcut.sh — Đặt phím tắt chuyển input method cho fcitx5
 # - GNOME: TriggerKeys = Alt+Space (không đụng shortcut Super+Space mặc định của GNOME)
 # - KDE/khác: TriggerKeys = Super+Space; KDE đổi KRunner sang Alt+Space

@@ -1,5 +1,5 @@
 #!/bin/sh
-# @setup-description: Cài các ứng dụng chat bản deb
+# @setup-description: Cài chat apps (Mattermost, Slack, Discord,...)
 # @setup-when: always
 # @setup-item: install_slack|Slack (repo chính thức packagecloud)
 # @setup-item: install_mattermost|Mattermost Desktop (.deb từ GitHub releases)

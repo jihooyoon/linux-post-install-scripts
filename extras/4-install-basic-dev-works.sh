@@ -1,7 +1,7 @@
 #!/bin/sh
-# @setup-description: Cài bộ công cụ phát triển cơ bản
+# @setup-description: Cài môi trường dev/test (Node.js)
 # @setup-when: always
-# @setup-core-description: Cài Node.js LTS từ NodeSource
+# @setup-core-description: Cài Node.js
 # 4-install-basic-dev-works.sh — Cài các công cụ dev cơ bản: Node.js (NodeSource LTS)
 # Chạy: sudo ./4-install-basic-dev-works.sh
 

@@ -1,7 +1,7 @@
 #!/bin/sh
-# @setup-description: Generalize Tuxedo OS thành hệ Ubuntu/Debian thuần hơn
+# @setup-description: De-bloat Tuxedo brand
 # @setup-when: tuxedo
-# @setup-core-description: Gỡ app, branding, theme, wallpaper và cấu hình riêng của Tuxedo
+# @setup-core-description: De-bloat & de-brandind
 # 1-generalize-tuxedo-os.sh — Gỡ các app + theme SDDM/Plasma + wallpaper + avatar Tuxedo khỏi Tuxedo OS
 # Dùng khi muốn biến Tuxedo OS thành Ubuntu/Debian "thuần" hơn.
 # Chạy: sudo ./1-generalize-tuxedo-os.sh

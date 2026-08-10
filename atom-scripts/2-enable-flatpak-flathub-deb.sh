@@ -1,7 +1,7 @@
 #!/bin/sh
-# @setup-description: Bật Flatpak và kho ứng dụng Flathub
+# @setup-description: Bật Flatpak & Flathub
 # @setup-when: always
-# @setup-core-description: Cài Flatpak, cấu hình Flathub và tích hợp desktop
+# @setup-core-description: Bật Flatpak & Flathub
 # 2-enable-flatpak-flathub-deb.sh — Cài flatpak + bật kho Flathub trên Ubuntu/Debian
 # Chạy: sudo ./2-enable-flatpak-flathub-deb.sh
 
