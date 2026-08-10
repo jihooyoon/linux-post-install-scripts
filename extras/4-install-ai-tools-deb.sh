@@ -150,7 +150,8 @@ install_codex_cli() {
     if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
         ensure_curl
         HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-        sudo -u "$SUDO_USER" -H bash -c 'curl -fsSL https://chatgpt.com/codex/install.sh | sh'
+        sudo -u "$SUDO_USER" -H env CODEX_NON_INTERACTIVE=1 \
+            bash -c 'curl -fsSL https://chatgpt.com/codex/install.sh | sh'
         if [ -x "$HOME_USER/.local/bin/codex" ]; then
             ok "Đã cài Codex CLI cho user $SUDO_USER"
         else
