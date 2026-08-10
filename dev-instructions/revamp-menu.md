@@ -33,7 +33,7 @@ Script con không còn menu và không đọc `/dev/tty`.
 ### Atom scripts
 
 - De-snap, Tuxedo generalization, Flatpak/Flathub và Lotus: toàn bộ logic hiện tại là core.
-- Basic Apps: apt update, fcitx5, purge ibus và autostart là core; FreeOffice, Chrome, Chromium và VS Code là item.
+- Basic Apps: apt update, fcitx5, purge ibus và autostart là core; FreeOffice, LibreOffice, Chrome, Chromium và VS Code là item.
 
 ### Extras
 

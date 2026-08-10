@@ -78,6 +78,80 @@ else
     fail "xóa item tự cập nhật range"
 fi
 
+BASIC_FILE="$ROOT/atom-scripts/3-install-basic-apps-deb.sh"
+if setup_child_prepare "$BASIC_FILE" --all && \
+   [ "$SETUP_SELECTED" = "1 2 3 4 5" ]; then
+    pass "Basic Apps --all chọn đủ năm item"
+else
+    fail "Basic Apps --all chọn đủ năm item"
+fi
+
+awk '/^run_best_effort\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/run-best-effort.fn"
+awk '/^reconcile_office_selection\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/reconcile-office.fn"
+awk '/^run_selected_best_effort\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/run-selected-best-effort.fn"
+awk '/^install_libreoffice\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/install-libreoffice.fn"
+
+run_office_case() {
+    _selection=$1
+    _output=$2
+    _purge_failure=${3:-0}
+    (
+        . "$ROOT/lib/setup-contract.sh"
+        . "$TMP_TEST/run-best-effort.fn"
+        . "$TMP_TEST/reconcile-office.fn"
+        warn() { printf 'warn:%s\n' "$*"; }
+        purge_libreoffice() { printf 'purge-libreoffice\n'; return "$_purge_failure"; }
+        purge_freeoffice() { printf 'purge-freeoffice\n'; return "$_purge_failure"; }
+        SETUP_SELECTED=$_selection
+        reconcile_office_selection
+    ) > "$_output" 2>&1
+}
+
+run_office_case '1 2' "$TMP_TEST/office-both.out"
+assert_not_contains "$TMP_TEST/office-both.out" "purge-" "chọn cả hai Office không purge"
+
+run_office_case '1' "$TMP_TEST/office-free.out"
+assert_contains "$TMP_TEST/office-free.out" "purge-libreoffice" "chỉ FreeOffice thì purge LibreOffice"
+assert_not_contains "$TMP_TEST/office-free.out" "purge-freeoffice" "chỉ FreeOffice không purge FreeOffice"
+
+run_office_case '2' "$TMP_TEST/office-libre.out"
+assert_contains "$TMP_TEST/office-libre.out" "purge-freeoffice" "chỉ LibreOffice thì purge FreeOffice"
+assert_not_contains "$TMP_TEST/office-libre.out" "purge-libreoffice" "chỉ LibreOffice không purge LibreOffice"
+
+run_office_case '3' "$TMP_TEST/office-none.out"
+assert_not_contains "$TMP_TEST/office-none.out" "purge-" "không chọn Office thì không purge"
+
+if run_office_case '1' "$TMP_TEST/office-purge-failure.out" 9; then
+    pass "lỗi purge Office không làm child thất bại"
+else
+    fail "lỗi purge Office không làm child thất bại"
+fi
+assert_contains "$TMP_TEST/office-purge-failure.out" "exit 9" "lỗi purge Office được cảnh báo"
+assert_contains "$TMP_TEST/install-libreoffice.fn" "apt-get install -y libreoffice" "LibreOffice dùng repo mặc định"
+
+if (
+    . "$ROOT/lib/setup-contract.sh"
+    . "$TMP_TEST/run-best-effort.fn"
+    . "$TMP_TEST/run-selected-best-effort.fn"
+    warn() { printf 'warn:%s\n' "$*"; }
+    install_freeoffice() { printf 'called:freeoffice\n'; return 1; }
+    install_libreoffice() { printf 'called:libreoffice\n'; return 2; }
+    install_chrome() { printf 'called:chrome\n'; return 3; }
+    install_chromium() { printf 'called:chromium\n'; return 4; }
+    install_vscode() { printf 'called:vscode\n'; return 5; }
+    CHILD_FILE="$BASIC_FILE"
+    SETUP_SELECTED='1 2 3 4 5'
+    run_selected_best_effort
+) > "$TMP_TEST/basic-best-effort.out" 2>&1; then
+    pass "optional apps lỗi vẫn trả thành công"
+else
+    fail "optional apps lỗi vẫn trả thành công"
+fi
+for app_name in freeoffice libreoffice chrome chromium vscode; do
+    assert_contains "$TMP_TEST/basic-best-effort.out" "called:$app_name" \
+        "optional runner tiếp tục tới $app_name"
+done
+
 OUT="$TMP_TEST/interactive.out"
 if run_parent 's\n1\ns\nr\n' "$OUT"; then
     pass "interactive core-only và empty extra exit thành công"
@@ -156,6 +230,14 @@ for command_name in apt-get curl gpg; do
         > "$STUB_BIN/$command_name"
     chmod +x "$STUB_BIN/$command_name"
 done
+
+if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
+    sh "$BASIC_FILE" > "$TMP_TEST/basic-core-failure.out" 2>&1; then
+    fail "Basic Apps core failure phải trả non-zero"
+else
+    pass "Basic Apps core failure vẫn trả non-zero"
+fi
+: > "$TMP_TEST/side-effects.log"
 
 if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
     sh "$ROOT/extras/4-install-ai-tools-deb.sh" > "$TMP_TEST/ai-empty.out" 2>&1 && \
