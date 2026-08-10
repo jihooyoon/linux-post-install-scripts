@@ -123,8 +123,14 @@ awk '/^install_onlyoffice\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/install-onlyoff
 awk '/^install_libreoffice\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/install-libreoffice.fn"
 awk '/^prepare_apt\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/office-prepare-apt.fn"
 awk '/^prepare_apt\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/basic-prepare-apt.fn"
+awk '/^run_selected_best_effort\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/basic-run-selected-best-effort.fn"
 awk '/^detect_desktop\(\)/,/^}/' "$FLATPAK_FILE" > "$TMP_TEST/flatpak-detect-desktop.fn"
 awk '/^install_gui_backend\(\)/,/^}/' "$FLATPAK_FILE" > "$TMP_TEST/flatpak-install-gui-backend.fn"
+
+assert_not_contains "$TMP_TEST/run-selected-best-effort.fn" "_i=" "Office runner không dùng iterator chung _i"
+assert_contains "$TMP_TEST/run-selected-best-effort.fn" "_selected_item_index=1" "Office runner dùng iterator riêng"
+assert_not_contains "$TMP_TEST/basic-run-selected-best-effort.fn" "_i=" "Basic Apps runner không dùng iterator chung _i"
+assert_contains "$TMP_TEST/basic-run-selected-best-effort.fn" "_selected_item_index=1" "Basic Apps runner dùng iterator riêng"
 
 if (
     . "$TMP_TEST/flatpak-detect-desktop.fn"
@@ -519,6 +525,26 @@ for app_name in claude-desktop claude-cli codex-cli; do
         "AI runner tiếp tục tới $app_name"
 done
 
+if (
+    . "$ROOT/lib/setup-contract.sh"
+    . "$TMP_TEST/ai-run-best-effort.fn"
+    . "$TMP_TEST/ai-run-selected-best-effort.fn"
+    warn() { printf 'warn:%s\n' "$*"; }
+    install_claude_desktop() { printf 'called:claude-desktop\n'; _i=0; return 0; }
+    install_claude_cli() { printf 'called:claude-cli\n'; return 0; }
+    install_codex_cli() { printf 'called:codex-cli\n'; return 0; }
+    CHILD_FILE="$AI_FILE"
+    SETUP_SELECTED='1'
+    run_selected_best_effort
+) > "$TMP_TEST/ai-single-selection.out" 2>&1; then
+    pass "AI selection 1 không bị biến _i trong installer làm lệch"
+else
+    fail "AI selection 1 không bị biến _i trong installer làm lệch"
+fi
+assert_contains "$TMP_TEST/ai-single-selection.out" "called:claude-desktop" "AI item 1 chạy Claude Desktop"
+assert_not_contains "$TMP_TEST/ai-single-selection.out" "called:claude-cli" "AI item 1 không chạy Claude CLI"
+assert_not_contains "$TMP_TEST/ai-single-selection.out" "called:codex-cli" "AI item 1 không chạy Codex CLI"
+
 awk '/^install_slack\(\)/,/^}/' "$CHAT_FILE" > "$TMP_TEST/slack.fn"
 awk '/^install_mattermost\(\)/,/^}/' "$CHAT_FILE" > "$TMP_TEST/mattermost.fn"
 awk '/^install_discord\(\)/,/^}/' "$CHAT_FILE" > "$TMP_TEST/discord.fn"
@@ -555,6 +581,26 @@ for app_name in slack mattermost discord; do
     assert_contains "$TMP_TEST/chat-best-effort.out" "called:$app_name" \
         "Chat runner tiếp tục tới $app_name"
 done
+
+if (
+    . "$ROOT/lib/setup-contract.sh"
+    . "$TMP_TEST/chat-run-best-effort.fn"
+    . "$TMP_TEST/chat-run-selected-best-effort.fn"
+    warn() { printf 'warn:%s\n' "$*"; }
+    install_slack() { printf 'called:slack\n'; _i=0; return 0; }
+    install_mattermost() { printf 'called:mattermost\n'; return 0; }
+    install_discord() { printf 'called:discord\n'; return 0; }
+    CHILD_FILE="$CHAT_FILE"
+    SETUP_SELECTED='1'
+    run_selected_best_effort
+) > "$TMP_TEST/chat-single-selection.out" 2>&1; then
+    pass "Chat selection 1 không bị biến _i trong installer làm lệch"
+else
+    fail "Chat selection 1 không bị biến _i trong installer làm lệch"
+fi
+assert_contains "$TMP_TEST/chat-single-selection.out" "called:slack" "Chat item 1 chạy Slack"
+assert_not_contains "$TMP_TEST/chat-single-selection.out" "called:mattermost" "Chat item 1 không chạy Mattermost"
+assert_not_contains "$TMP_TEST/chat-single-selection.out" "called:discord" "Chat item 1 không chạy Discord"
 
 printf '\nTests: pass=%s fail=%s\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

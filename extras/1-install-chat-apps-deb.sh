@@ -149,17 +149,17 @@ install_discord() {
 }
 
 run_selected_best_effort() {
-    _items=$(setup_items "$CHILD_FILE")
-    _i=1
-    while IFS='|' read -r _function _label; do
-        [ -n "$_function" ] || continue
-        if setup_has_word "$SETUP_SELECTED" "$_i"; then
-            printf '\n\033[1;36m[item]\033[0m %d) %s\n' "$_i" "$_label"
-            run_best_effort "$_label" "$_function"
+    _selected_items=$(setup_items "$CHILD_FILE")
+    _selected_item_index=1
+    while IFS='|' read -r _selected_function _selected_label; do
+        [ -n "$_selected_function" ] || continue
+        if setup_has_word "$SETUP_SELECTED" "$_selected_item_index"; then
+            printf '\n\033[1;36m[item]\033[0m %d) %s\n' "$_selected_item_index" "$_selected_label"
+            run_best_effort "$_selected_label" "$_selected_function"
         fi
-        _i=$((_i + 1))
+        _selected_item_index=$((_selected_item_index + 1))
     done <<EOF
-$_items
+$_selected_items
 EOF
 }
 
