@@ -76,7 +76,7 @@ tar -xzf "$TARBALL" -C /tmp
 [ -f "$DEST/$SETUP" ] || die "Không tìm thấy $SETUP — sai repo/branch?"
 
 # --- Bước 2: Cấp quyền execute (git không lưu quyền này) ---
-chmod +x "$DEST"/*.sh "$DEST"/atom-scripts/*.sh "$DEST"/extras/*.sh
+chmod +x "$DEST"/*.sh "$DEST"/basics/*.sh "$DEST"/extras/*.sh
 ok "Đã chmod +x toàn bộ script"
 
 # --- Bước 3: Chạy setup (tự gọi sudo nếu chưa root) ---

@@ -22,10 +22,10 @@ print_help() {
 Usage: sudo $0 [--all|-a|--pack-ms|--pack-bs] [--keep-snap] [--help|-h]
 
   (không đối số)  Mở menu động, review rồi chạy
-  --all, -a       Chọn toàn bộ atom items và extras, không hiện menu
-  --pack-ms       Chọn OnlyOffice; các script và item khác chọn tất cả
-  --pack-bs       Preset cơ bản: OnlyOffice, Chrome, Mattermost, shortcut IME và Claude Desktop
-  --keep-snap     Giữ Snap, bỏ De-snap (atom 1) trên máy non-Tuxedo
+  --all, -a       Chọn toàn bộ Basics và extras, không hiện menu
+  --pack-ms       Chọn OnlyOffice, mở rộng swap; trừ Basic chuyển KDE, các mục khác chọn tất cả
+  --pack-bs       Preset cơ bản: swap, OnlyOffice, Chrome, Mattermost, shortcut IME và Claude Desktop
+  --keep-snap     Giữ Snap; Basic De-bloat tự bỏ de-snap trên máy non-Tuxedo
   --help, -h      In trợ giúp này
 
 Chỉ được dùng một preset: --all/-a, --pack-ms hoặc --pack-bs.
@@ -60,9 +60,9 @@ if [ "${SETUP_TEST_MODE:-0}" != "1" ]; then
         || die "Phải chạy bằng sudo để giữ user thật trong SUDO_USER: sudo $0"
 fi
 
-ATOM_DIR=${SETUP_ATOM_DIR:-"$SCRIPT_DIR/atom-scripts"}
+BASICS_DIR=${SETUP_BASICS_DIR:-"$SCRIPT_DIR/basics"}
 EXTRA_DIR=${SETUP_EXTRA_DIR:-"$SCRIPT_DIR/extras"}
-[ -d "$ATOM_DIR" ] || die "Không tìm thấy thư mục atom scripts: $ATOM_DIR"
+[ -d "$BASICS_DIR" ] || die "Không tìm thấy thư mục Basics: $BASICS_DIR"
 [ -d "$EXTRA_DIR" ] || die "Không tìm thấy thư mục extras: $EXTRA_DIR"
 
 STATE_DIR=$(mktemp -d /tmp/setup-menu.XXXXXX) || die "Không tạo được thư mục state tạm"
@@ -73,17 +73,17 @@ trap cleanup_state EXIT
 trap 'cleanup_state; exit 130' INT
 trap 'cleanup_state; exit 143' TERM
 
-ATOM_MANIFEST="$STATE_DIR/atoms.manifest"
-ATOM_SKIPPED_FILE="$STATE_DIR/atoms.skipped"
+BASICS_MANIFEST="$STATE_DIR/basics.manifest"
 EXTRA_MANIFEST="$STATE_DIR/extras.manifest"
 STATUS_FILE="$STATE_DIR/status"
 STAGES_FILE="$STATE_DIR/stages"
 EXTRA_SELECTED_FILE="$STATE_DIR/extras.selected"
-: > "$ATOM_MANIFEST"
-: > "$ATOM_SKIPPED_FILE"
+BASICS_SELECTED_FILE="$STATE_DIR/basics.selected"
+: > "$BASICS_MANIFEST"
 : > "$EXTRA_MANIFEST"
 : > "$STATUS_FILE"
 : > "$EXTRA_SELECTED_FILE"
+: > "$BASICS_SELECTED_FILE"
 
 FAIL_COUNT=0
 record_status() {
@@ -98,19 +98,11 @@ status_fallback_description() {
     _kind=$1
     _slot=$2
     case "$_kind" in
-        atom)  printf 'Atom slot %s\n' "$_slot" ;;
+        basic) printf 'Basic slot %s\n' "$_slot" ;;
         extra) printf 'Extra slot %s\n' "$_slot" ;;
         *)     printf 'Setup slot %s\n' "$_slot" ;;
     esac
 }
-
-if [ -n "${SETUP_TEST_TUXEDO:-}" ]; then
-    IS_TUXEDO=$SETUP_TEST_TUXEDO
-elif grep -qi 'tuxedo' /etc/os-release 2>/dev/null; then
-    IS_TUXEDO=1
-else
-    IS_TUXEDO=0
-fi
 
 remove_manifest_slot() {
     _manifest=$1
@@ -145,12 +137,6 @@ scan_directory() {
         _description=$(setup_description "$_file")
         _core=$(setup_core_description "$_file")
         _count=$(setup_item_count "$_file")
-        _when=$(setup_when "$_file")
-        if ! setup_when_applies "$_when" "$IS_TUXEDO"; then
-            record_status SKIPPED "$_description" "not applicable ($_when)"
-            continue
-        fi
-
         if setup_has_word "$_invalid_slots" "$_slot"; then
             record_status FAILED "$(status_fallback_description "$_kind" "$_slot")" "slot $_slot đã bị vô hiệu do duplicate"
             continue
@@ -170,28 +156,8 @@ scan_directory() {
     sort -t'|' -k1,1n -o "$_manifest" "$_manifest"
 }
 
-scan_directory atom "$ATOM_DIR" "$ATOM_MANIFEST"
-if ! awk -F'|' '$1 == 1 { found=1 } END { exit !found }' "$ATOM_MANIFEST"; then
-    record_status FAILED "$(status_fallback_description atom 1)" "không có Tuxedo/non-Tuxedo variant phù hợp"
-fi
+scan_directory basic "$BASICS_DIR" "$BASICS_MANIFEST"
 scan_directory extra "$EXTRA_DIR" "$EXTRA_MANIFEST"
-
-mark_atom_skipped() {
-    _slot=$1
-    _reason=$2
-    awk -F'|' -v slot="$_slot" '$1 == slot { found=1 } END { exit !found }' "$ATOM_SKIPPED_FILE" \
-        || printf '%s|%s\n' "$_slot" "$_reason" >> "$ATOM_SKIPPED_FILE"
-}
-
-atom_skip_reason() {
-    _slot=$1
-    awk -F'|' -v slot="$_slot" '$1 == slot { print $2; exit }' "$ATOM_SKIPPED_FILE"
-}
-
-if [ "$KEEP_SNAP" -eq 1 ] && [ "$IS_TUXEDO" -eq 0 ] && \
-   awk -F'|' '$1 == 1 { found=1 } END { exit !found }' "$ATOM_MANIFEST"; then
-    mark_atom_skipped 1 "--keep-snap"
-fi
 
 selection_file() {
     printf '%s/%s-%s.selection\n' "$STATE_DIR" "$1" "$2"
@@ -223,41 +189,67 @@ select_all_items() {
     done < "$_manifest"
 }
 
-enable_all_extras() {
+enable_all_scripts() {
+    _manifest=$1
+    _selected_file=$2
     _enabled=""
     while IFS='|' read -r _slot _rest; do
         [ -n "$_slot" ] || continue
         _enabled="${_enabled}${_enabled:+ }$_slot"
-    done < "$EXTRA_MANIFEST"
-    printf '%s\n' "$_enabled" > "$EXTRA_SELECTED_FILE"
+    done < "$_manifest"
+    printf '%s\n' "$_enabled" > "$_selected_file"
+}
+
+disable_script_slot() {
+    _selected_file=$1
+    _slot_to_remove=$2
+    _enabled=""
+    for _slot in $(cat "$_selected_file"); do
+        if [ "$_slot" != "$_slot_to_remove" ]; then
+            if [ -n "$_enabled" ]; then _enabled="$_enabled $_slot"; else _enabled=$_slot; fi
+        fi
+    done
+    printf '%s\n' "$_enabled" > "$_selected_file"
 }
 
 apply_preset() {
     case "$PRESET" in
         all)
-            select_all_items atom "$ATOM_MANIFEST"
+            select_all_items basic "$BASICS_MANIFEST"
             select_all_items extra "$EXTRA_MANIFEST"
-            enable_all_extras
+            enable_all_scripts "$BASICS_MANIFEST" "$BASICS_SELECTED_FILE"
+            enable_all_scripts "$EXTRA_MANIFEST" "$EXTRA_SELECTED_FILE"
             ;;
         pack-ms)
-            select_all_items atom "$ATOM_MANIFEST"
+            select_all_items basic "$BASICS_MANIFEST"
             select_all_items extra "$EXTRA_MANIFEST"
-            enable_all_extras
-            require_manifest_slot "$ATOM_MANIFEST" 4
-            set_selection atom 4 1
+            enable_all_scripts "$BASICS_MANIFEST" "$BASICS_SELECTED_FILE"
+            enable_all_scripts "$EXTRA_MANIFEST" "$EXTRA_SELECTED_FILE"
+            disable_script_slot "$BASICS_SELECTED_FILE" 1
+            require_manifest_slot "$EXTRA_MANIFEST" 5
+            require_manifest_slot "$BASICS_MANIFEST" 5
+            set_selection extra 5 1
+            set_selection basic 5 1
             ;;
         pack-bs)
-            require_manifest_slot "$ATOM_MANIFEST" 4
-            require_manifest_slot "$ATOM_MANIFEST" 5
+            require_manifest_slot "$BASICS_MANIFEST" 2
+            require_manifest_slot "$BASICS_MANIFEST" 3
+            require_manifest_slot "$BASICS_MANIFEST" 4
+            require_manifest_slot "$BASICS_MANIFEST" 5
+            require_manifest_slot "$BASICS_MANIFEST" 6
             require_manifest_slot "$EXTRA_MANIFEST" 1
             require_manifest_slot "$EXTRA_MANIFEST" 2
             require_manifest_slot "$EXTRA_MANIFEST" 3
             require_manifest_slot "$EXTRA_MANIFEST" 4
-            set_selection atom 4 1
-            set_selection atom 5 1
-            printf '1 3 4\n' > "$EXTRA_SELECTED_FILE"
+            require_manifest_slot "$EXTRA_MANIFEST" 5
+            printf '2 3 4 5 6\n' > "$BASICS_SELECTED_FILE"
+            set_selection basic 3 --all
+            set_selection basic 5 1
+            set_selection basic 6 1
+            printf '1 3 4 5\n' > "$EXTRA_SELECTED_FILE"
             set_selection extra 1 2
             set_selection extra 4 1
+            set_selection extra 5 1
             ;;
         '') ;;
         *) die "Preset không hợp lệ: $PRESET" ;;
@@ -266,11 +258,14 @@ apply_preset() {
 
 build_stages() {
     : > "$STAGES_FILE"
+    [ ! -f "$STATE_DIR/basics.menu.done" ] && [ -s "$BASICS_MANIFEST" ] && printf 'basics||||\n' >> "$STAGES_FILE"
+    _basics_enabled=$(cat "$BASICS_SELECTED_FILE")
     while IFS='|' read -r _slot _file _description _core _count; do
         [ -n "$_slot" ] || continue
-        [ "$_count" -eq 0 ] || printf 'items|atom|%s|%s|%s\n' \
+        setup_has_word "$_basics_enabled" "$_slot" && [ "$_count" -gt 0 ] || continue
+        printf 'items|basic|%s|%s|%s\n' \
             "$_slot" "$_file" "$_description" >> "$STAGES_FILE"
-    done < "$ATOM_MANIFEST"
+    done < "$BASICS_MANIFEST"
 
     if [ -s "$EXTRA_MANIFEST" ]; then
         printf 'extras||||\n' >> "$STAGES_FILE"
@@ -437,6 +432,51 @@ show_extra_stage() {
     printf 'Nhập lựa chọn: '
 }
 
+normalize_basic_choice() {
+    _input=$1
+    NORMALIZED_CHOICE=""
+    NORMALIZED_ACTION=select
+    case "$_input" in
+        a) while IFS='|' read -r _slot _rest; do [ -n "$_slot" ] && NORMALIZED_CHOICE="${NORMALIZED_CHOICE}${NORMALIZED_CHOICE:+ }$_slot"; done < "$BASICS_MANIFEST"; return 0 ;;
+        s) return 0 ;;
+        b|q) NORMALIZED_ACTION=$_input; return 0 ;;
+        '') warn "Bắt buộc nhập lựa chọn"; return 1 ;;
+    esac
+    _requested=""
+    for _number in $_input; do
+        case "$_number" in ''|*[!0-9]*|0|0*) warn "Basic không hợp lệ: $_number"; return 1 ;; esac
+        if ! awk -F'|' -v slot="$_number" '$1 == slot { found=1 } END { exit !found }' "$BASICS_MANIFEST"; then warn "Không có Basic số $_number"; return 1; fi
+        _requested="${_requested}${_requested:+ }$_number"
+    done
+    while IFS='|' read -r _slot _rest; do
+        [ -n "$_slot" ] || continue
+        setup_has_word "$_requested" "$_slot" && NORMALIZED_CHOICE="${NORMALIZED_CHOICE}${NORMALIZED_CHOICE:+ }$_slot"
+    done < "$BASICS_MANIFEST"
+    return 0
+}
+
+clear_deselected_basic_state() {
+    _enabled=$1
+    while IFS='|' read -r _slot _rest; do
+        [ -n "$_slot" ] || continue
+        if ! setup_has_word "$_enabled" "$_slot"; then
+            _selection_path=$(selection_file basic "$_slot")
+            [ ! -f "$_selection_path" ] || rm -f "$_selection_path"
+        fi
+    done < "$BASICS_MANIFEST"
+}
+
+show_basic_stage() {
+    _enabled=$(cat "$BASICS_SELECTED_FILE")
+    printf '\n\033[1;36m══════════════════════════════════════════\033[0m\n'
+    printf '\033[1;36m  Chọn basic scripts\033[0m\n'
+    printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
+    while IFS='|' read -r _slot _file _description _rest; do [ -n "$_slot" ] && printf '  \033[1;33m%s)\033[0m %s\n' "$_slot" "$_description"; done < "$BASICS_MANIFEST"
+    printf '  -------\n  \033[1;33ma)\033[0m Tất cả Basics\n  \033[1;33ms)\033[0m Không chạy Basics\n  \033[1;33mb)\033[0m Quay lại    \033[1;33mq)\033[0m Thoát\n'
+    [ -z "$_enabled" ] || printf '  Lựa chọn hiện tại: %s\n' "$_enabled"
+    printf '  -------\nNhập lựa chọn: '
+}
+
 selection_labels() {
     _file=$1
     _selection=$2
@@ -466,13 +506,6 @@ print_script_review() {
     _labels=$(selection_labels "$_file" "$_selection")
 
     printf '  \033[97m%s. %s\033[0m\n' "$_slot" "$_description"
-    if [ "$_kind" = atom ]; then
-        _skip_reason=$(atom_skip_reason "$_slot")
-        if [ -n "$_skip_reason" ]; then
-            printf '     \033[90mSkipped: %s\033[0m\n' "$_skip_reason"
-            return
-        fi
-    fi
     [ -z "$_core" ] || printf '     \033[90mCore: %s\033[0m\n' "$_core"
     if [ "$_count" -gt 0 ]; then
         if [ -n "$_labels" ]; then
@@ -489,11 +522,15 @@ show_review() {
     printf '\n\033[1;36m══════════════════════════════════════════\033[0m\n'
     printf '\033[1;36m  Review execution plan\033[0m\n'
     printf '\033[1;36m══════════════════════════════════════════\033[0m\n'
-    printf '\nAtom scripts:\n'
+    printf '\nBasics:\n'
     while IFS='|' read -r _slot _file _description _core _count; do
         [ -n "$_slot" ] || continue
-        print_script_review atom "$_slot" "$_file" "$_description" "$_core" "$_count"
-    done < "$ATOM_MANIFEST"
+        if setup_has_word "$(cat "$BASICS_SELECTED_FILE")" "$_slot"; then
+            print_script_review basic "$_slot" "$_file" "$_description" "$_core" "$_count"
+        else
+            printf '  \033[97m%s. %s\033[0m\n     \033[90mSkipped: not selected\033[0m\n' "$_slot" "$_description"
+        fi
+    done < "$BASICS_MANIFEST"
 
     printf '\nExtras:\n'
     _enabled=$(cat "$EXTRA_SELECTED_FILE")
@@ -529,6 +566,15 @@ $_stage
 EOF
 
         case "$_type" in
+            basics)
+                clear_menu_screen
+                while :; do show_basic_stage; read_menu_choice; normalize_basic_choice "$MENU_CHOICE" && break; done
+                case "$NORMALIZED_ACTION" in
+                    b) [ "$_stage_index" -gt 1 ] && _stage_index=$((_stage_index - 1)) || warn "Đây là stage đầu tiên" ;;
+                    q) exec 3<&-; return 10 ;;
+                    *) printf '%s\n' "$NORMALIZED_CHOICE" > "$BASICS_SELECTED_FILE"; clear_deselected_basic_state "$NORMALIZED_CHOICE"; : > "$STATE_DIR/basics.menu.done"; _stage_index=1 ;;
+                esac
+                ;;
             items)
                 clear_menu_screen
                 while :; do
@@ -538,7 +584,10 @@ EOF
                 done
                 case "$NORMALIZED_ACTION" in
                     b)
-                        if [ "$_stage_index" -gt 1 ]; then
+                        if [ "$_kind" = basic ]; then
+                            rm -f "$STATE_DIR/basics.menu.done"
+                            _stage_index=1
+                        elif [ "$_stage_index" -gt 1 ]; then
                             _stage_index=$((_stage_index - 1))
                         else
                             warn "Đây là stage đầu tiên"
@@ -602,6 +651,9 @@ run_child() {
     _file=$3
     _description=$4
     _args=$5
+    if [ "$_kind" = basic ] && [ "$_slot" -eq 2 ] && [ "$KEEP_SNAP" -eq 1 ]; then
+        _args="${_args}${_args:+ }--keep-snap"
+    fi
     info "=== Bắt đầu: $_description ($(basename -- "$_file")) ==="
     if [ -n "$_args" ]; then
         sh "$_file" $_args
@@ -612,23 +664,27 @@ run_child() {
     if [ "$_code" -eq 0 ]; then
         ok "Hoàn tất: $_description"
         record_status SUCCESS "$_description" "completed"
+        return 0
     else
-        warn "$_description thất bại (exit $_code) — tiếp tục"
+        warn "$_description thất bại (exit $_code)"
         record_status FAILED "$_description" "exit $_code"
+        return "$_code"
     fi
 }
 
 execute_plan() {
+    _basics_enabled=$(cat "$BASICS_SELECTED_FILE")
     while IFS='|' read -r _slot _file _description _core _count; do
         [ -n "$_slot" ] || continue
-        _skip_reason=$(atom_skip_reason "$_slot")
-        if [ -n "$_skip_reason" ]; then
-            record_status SKIPPED "$_description" "$_skip_reason"
-            continue
+        if ! setup_has_word "$_basics_enabled" "$_slot"; then record_status SKIPPED "$_description" "not selected"; continue; fi
+        _args=$(get_selection basic "$_slot")
+        if [ "$_count" -gt 0 ] && [ -z "$_args" ] && [ -z "$_core" ]; then record_status SKIPPED "$_description" "no items selected"; continue; fi
+        run_child basic "$_slot" "$_file" "$_description" "$_args"
+        _child_code=$?
+        if [ "$_slot" -eq 1 ] && [ "$_child_code" -ne 0 ]; then
+            return "$_child_code"
         fi
-        _args=$(get_selection atom "$_slot")
-        run_child atom "$_slot" "$_file" "$_description" "$_args"
-    done < "$ATOM_MANIFEST"
+    done < "$BASICS_MANIFEST"
 
     _enabled=$(cat "$EXTRA_SELECTED_FILE")
 
@@ -645,8 +701,9 @@ execute_plan() {
             record_status SKIPPED "$_description" "no items selected"
             continue
         fi
-        run_child extra "$_slot" "$_file" "$_description" "$_args"
+        run_child extra "$_slot" "$_file" "$_description" "$_args" || true
     done < "$EXTRA_MANIFEST"
+    return 0
 }
 
 print_summary() {
@@ -671,6 +728,7 @@ print_summary() {
 
 is_gnome_desktop() {
     _desktop=${XDG_CURRENT_DESKTOP:-}
+    setup_is_kde_desktop "$_desktop" && return 1
     if [ -z "$_desktop" ] && [ -n "${SUDO_USER:-}" ] && command -v pgrep >/dev/null 2>&1; then
         if pgrep -u "$SUDO_USER" -x gnome-shell >/dev/null 2>&1; then
             _desktop=GNOME
@@ -705,7 +763,13 @@ else
     info "Chế độ không tương tác: áp preset --$PRESET"
 fi
 
-execute_plan
+if execute_plan; then
+    :
+else
+    _execution_code=$?
+    print_summary
+    exit "$_execution_code"
+fi
 print_summary
 print_gnome_kimpanel_notice
 

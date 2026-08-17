@@ -41,8 +41,9 @@ run_parent() {
     printf '%b' "$_input" | env \
         SETUP_TEST_MODE=1 \
         SETUP_TEST_TUXEDO="${SETUP_TEST_TUXEDO_VALUE:-0}" \
+        SETUP_TEST_KDE_FAIL="${SETUP_TEST_KDE_FAIL_VALUE:-0}" \
         SETUP_MENU_INPUT=- \
-        SETUP_ATOM_DIR="$ROOT/tests/fixtures/atoms" \
+        SETUP_BASICS_DIR="$ROOT/tests/fixtures/atoms" \
         SETUP_EXTRA_DIR="$ROOT/tests/fixtures/extras" \
         SETUP_TEST_LOG="$TMP_TEST/execution.log" \
         sh "$ROOT/setup-ubuntu-based.sh" "$@" > "$_output" 2>&1
@@ -55,7 +56,7 @@ run_preset() {
     env \
         SETUP_TEST_MODE=1 \
         SETUP_TEST_TUXEDO=0 \
-        SETUP_ATOM_DIR="$ROOT/tests/fixtures/presets/atoms" \
+        SETUP_BASICS_DIR="$ROOT/tests/fixtures/presets/atoms" \
         SETUP_EXTRA_DIR="$ROOT/tests/fixtures/presets/extras" \
         SETUP_TEST_LOG="$TMP_TEST/execution.log" \
         sh "$ROOT/setup-ubuntu-based.sh" "$@" > "$_output" 2>&1
@@ -63,27 +64,27 @@ run_preset() {
 
 . "$ROOT/lib/setup-contract.sh"
 
-if setup_validate_metadata "$ROOT/tests/fixtures/atoms/3-items.sh" && \
-   [ "$(setup_item_count "$ROOT/tests/fixtures/atoms/3-items.sh")" -eq 2 ]; then
+if setup_validate_metadata "$ROOT/tests/fixtures/atoms/4-items.sh" && \
+   [ "$(setup_item_count "$ROOT/tests/fixtures/atoms/4-items.sh")" -eq 2 ]; then
     pass "metadata fixture hợp lệ và đếm item động"
 else
     fail "metadata fixture hợp lệ và đếm item động"
 fi
 
-if setup_child_prepare "$ROOT/tests/fixtures/atoms/3-items.sh" 2 1 2 && \
+if setup_child_prepare "$ROOT/tests/fixtures/atoms/4-items.sh" 2 1 2 && \
    [ "$SETUP_SELECTED" = "1 2" ]; then
     pass "child argument được canonicalize và loại duplicate"
 else
     fail "child argument được canonicalize và loại duplicate"
 fi
 
-if setup_child_prepare "$ROOT/tests/fixtures/atoms/3-items.sh" --all 1 >/dev/null 2>&1; then
+if setup_child_prepare "$ROOT/tests/fixtures/atoms/4-items.sh" --all 1 >/dev/null 2>&1; then
     fail "child reject --all trộn item"
 else
     pass "child reject --all trộn item"
 fi
 
-sed '/@setup-item: second_item/d' "$ROOT/tests/fixtures/atoms/3-items.sh" > "$TMP_TEST/one-item.sh"
+sed '/@setup-item: second_item/d' "$ROOT/tests/fixtures/atoms/4-items.sh" > "$TMP_TEST/one-item.sh"
 if [ "$(setup_item_count "$TMP_TEST/one-item.sh")" -eq 1 ] && \
    ! setup_child_prepare "$TMP_TEST/one-item.sh" 2 >/dev/null 2>&1; then
     pass "xóa item tự cập nhật range"
@@ -91,10 +92,14 @@ else
     fail "xóa item tự cập nhật range"
 fi
 
-IME_FILE="$ROOT/atom-scripts/3-setup-ime-deb.sh"
-FLATPAK_FILE="$ROOT/atom-scripts/2-enable-flatpak-flathub-deb.sh"
-OFFICE_FILE="$ROOT/atom-scripts/4-setup-office-deb.sh"
-BASIC_FILE="$ROOT/atom-scripts/5-install-basic-apps-deb.sh"
+BASICS_FILE="$ROOT/basics/3-setup-basics-ubuntu-based.sh"
+KDE_FILE="$ROOT/basics/1-switch-to-kde-deb.sh"
+DEBLOAT_FILE="$ROOT/basics/2-debloat-ubuntu-based.sh"
+FLATPAK_FILE="$BASICS_FILE"
+SWAP_FILE="$ROOT/basics/4-expand-swapfile-deb.sh"
+OFFICE_FILE="$ROOT/basics/5-setup-office-deb.sh"
+BASIC_FILE="$ROOT/basics/6-install-basic-apps-deb.sh"
+MISC_FILE="$ROOT/extras/5-setup-miscellaneous-ubuntu-based.sh"
 if setup_child_prepare "$OFFICE_FILE" --all && \
    [ "$SETUP_SELECTED" = "1 2 3" ]; then
     pass "Office --all chọn đủ ba item"
@@ -109,11 +114,68 @@ else
     fail "Basic Apps --all chọn đủ ba item"
 fi
 
-if [ "$(setup_item_count "$IME_FILE")" -eq 0 ] && \
-   [ -n "$(setup_core_description "$IME_FILE")" ]; then
-    pass "IME là script core-only"
+if [ "$(setup_item_count "$BASICS_FILE")" -eq 3 ] && \
+   [ -z "$(setup_core_description "$BASICS_FILE")" ]; then
+    pass "Basics có ba item tùy chọn"
 else
-    fail "IME là script core-only"
+    fail "Basics có ba item tùy chọn"
+fi
+
+if [ "$(setup_item_count "$MISC_FILE")" -eq 2 ]; then
+    pass "Miscellaneous có Flameshot và WARP"
+else
+    fail "Miscellaneous có Flameshot và WARP"
+fi
+
+assert_contains "$SWAP_FILE" 'SWAP_SKIP_BYTES=$((12 * 1024 * 1024 * 1024))' "Swap skip khi đạt 12 GiB"
+assert_contains "$SWAP_FILE" 'TARGET_SWAP_BYTES=$((16 * 1024 * 1024 * 1024))' "Swap đặt mục tiêu 16 GiB"
+assert_contains "$SWAP_FILE" 'EXPAND_BYTES=$((TARGET_SWAP_BYTES - CURRENT_SWAP_BYTES))' "Swap tính phần mở rộng trước thao tác"
+assert_contains "$SWAP_FILE" '_replacement_file_bytes=$((_old_file_bytes + _expand_bytes))' "Swapfile thay thế bằng file cũ cộng phần mở rộng"
+assert_contains "$SWAP_FILE" 'create_swapfile "$TEMP_SWAPFILE" "$_old_file_bytes"' "Swapfile tạm cùng dung lượng file cũ"
+assert_contains "$SWAP_FILE" 'swapon "$TEMP_SWAPFILE"' "Bật swap tạm trước khi đổi file chính"
+assert_contains "$SWAP_FILE" 'swapoff "$_swap_path"' "Tắt swapfile chính sau khi có swap tạm"
+assert_contains "$SWAP_FILE" 'NEW_SWAPFILE=/swapfile-extra' "Swap mới dùng đường dẫn riêng an toàn"
+assert_contains "$SWAP_FILE" 'main || warn' "Lỗi swap runtime không làm child thất bại"
+assert_contains "$KDE_FILE" 'DEBIAN_FRONTEND=noninteractive apt-get install -y kde-plasma-desktop sddm' "KDE cài noninteractive với SDDM"
+assert_contains "$KDE_FILE" 'sddm shared/default-x-display-manager select sddm' "KDE preseed SDDM"
+assert_contains "$KDE_FILE" "'gnome*' 'gdm3' 'ubuntu-desktop*'" "KDE purge các metapackage GNOME"
+assert_contains "$KDE_FILE" 'apt-get autoremove -y --purge' "KDE dọn dependency GNOME"
+assert_contains "$KDE_FILE" 'setup_child_skip "desktop hiện tại đã là KDE/Plasma"' "KDE skip khi đã dùng KDE"
+assert_contains "$KDE_FILE" 'mark_kde_switch_succeeded' "KDE ghi marker sau khi KDE và SDDM sẵn sàng"
+assert_contains "$KDE_FILE" 'return 1' "Lỗi chuyển KDE trước marker làm child thất bại"
+assert_contains "$DEBLOAT_FILE" 'setup_is_kde_desktop' "Debloat dùng nhận diện KDE chung"
+assert_contains "$BASICS_FILE" 'setup_is_kde_desktop' "Basics dùng nhận diện KDE chung"
+assert_contains "$ROOT/extras/3-set-ime-shortcut.sh" 'setup_is_kde_desktop' "IME shortcut dùng nhận diện KDE chung"
+assert_contains "$ROOT/setup-ubuntu-based.sh" 'setup_is_kde_desktop "$_desktop"' "GNOME notice dùng nhận diện KDE chung"
+
+KDE_STUB_BIN="$TMP_TEST/kde-stubs"
+mkdir -p "$KDE_STUB_BIN"
+printf '#!/bin/sh\nprintf "0\\n"\n' > "$KDE_STUB_BIN/id"
+printf '#!/bin/sh\nprintf "apt:%s\\n" "$*" >> "$SETUP_SIDE_EFFECT_LOG"\nexit 99\n' > "$KDE_STUB_BIN/apt-get"
+chmod +x "$KDE_STUB_BIN/id" "$KDE_STUB_BIN/apt-get"
+: > "$TMP_TEST/kde-skip-effects.log"
+if PATH="$KDE_STUB_BIN:$PATH" XDG_CURRENT_DESKTOP=KDE \
+    SETUP_SIDE_EFFECT_LOG="$TMP_TEST/kde-skip-effects.log" \
+    sh "$KDE_FILE" > "$TMP_TEST/kde-skip.out" 2>&1 && \
+   [ ! -s "$TMP_TEST/kde-skip-effects.log" ] && \
+   grep -Fq -- '[SKIPPED]' "$TMP_TEST/kde-skip.out"; then
+    pass "KDE hiện tại skip mà không gọi apt"
+else
+    fail "KDE hiện tại skip mà không gọi apt"
+fi
+
+if sh "$DEBLOAT_FILE" --help > "$TMP_TEST/debloat-help.out" 2>&1 && \
+   grep -Fq -- "--keep-snap" "$TMP_TEST/debloat-help.out"; then
+    pass "Debloat child hỗ trợ --keep-snap khi chạy trực tiếp"
+else
+    fail "Debloat child hỗ trợ --keep-snap khi chạy trực tiếp"
+fi
+
+sed 's/@setup-when: always/@setup-when: tuxedo/' "$DEBLOAT_FILE" > "$TMP_TEST/conditional-when.sh"
+if ! setup_validate_metadata "$TMP_TEST/conditional-when.sh" >/dev/null 2>&1; then
+    pass "contract chỉ chấp nhận @setup-when: always"
+else
+    fail "contract chỉ chấp nhận @setup-when: always"
 fi
 
 awk '/^run_best_effort\(\)/,/^}/' "$OFFICE_FILE" > "$TMP_TEST/run-best-effort.fn"
@@ -126,6 +188,75 @@ awk '/^prepare_apt\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/basic-prepare-apt.fn"
 awk '/^run_selected_best_effort\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/basic-run-selected-best-effort.fn"
 awk '/^detect_desktop\(\)/,/^}/' "$FLATPAK_FILE" > "$TMP_TEST/flatpak-detect-desktop.fn"
 awk '/^install_gui_backend\(\)/,/^}/' "$FLATPAK_FILE" > "$TMP_TEST/flatpak-install-gui-backend.fn"
+awk '/^run_best_effort\(\)/,/^}/' "$MISC_FILE" > "$TMP_TEST/misc-run-best-effort.fn"
+awk '/^run_selected_best_effort\(\)/,/^}/' "$MISC_FILE" > "$TMP_TEST/misc-run-selected-best-effort.fn"
+awk '/^spectacle_is_installed\(\)/,/^}/' "$MISC_FILE" > "$TMP_TEST/misc-spectacle-installed.fn"
+awk '/^install_flameshot\(\)/,/^}/' "$MISC_FILE" > "$TMP_TEST/misc-install-flameshot.fn"
+
+assert_contains "$MISC_FILE" "apt-get install -y flameshot" "Flameshot cài từ apt"
+assert_contains "$MISC_FILE" 'setup_is_kde_desktop "$XDG_CURRENT_DESKTOP"' "Flameshot dùng nhận diện KDE chung"
+assert_contains "$MISC_FILE" "dpkg-query -W -f='\${db:Status-Status}' spectacle" "Flameshot kiểm tra Spectacle đã cài"
+assert_contains "$MISC_FILE" "https://pkg.cloudflareclient.com/pubkey.gpg" "WARP dùng public key theo guide"
+assert_contains "$MISC_FILE" "/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg" "WARP dùng keyring theo guide"
+assert_contains "$MISC_FILE" '$(lsb_release -cs)' "WARP dùng codename theo guide"
+assert_contains "$MISC_FILE" "signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg" "WARP source dùng signed-by"
+assert_contains "$MISC_FILE" "apt-get install -y cloudflare-warp" "WARP cài package chính thức"
+
+if (
+    . "$ROOT/lib/setup-contract.sh"
+    . "$TMP_TEST/misc-run-best-effort.fn"
+    . "$TMP_TEST/misc-run-selected-best-effort.fn"
+    warn() { printf 'warn:%s\n' "$*"; }
+    install_flameshot() { printf 'called:flameshot\n'; return 1; }
+    install_cloudflare_warp() { printf 'called:warp\n'; return 2; }
+    CHILD_FILE="$MISC_FILE"
+    SETUP_SELECTED='1 2'
+    run_selected_best_effort
+) > "$TMP_TEST/misc-best-effort.out" 2>&1; then
+    pass "Miscellaneous item lỗi vẫn trả thành công"
+else
+    fail "Miscellaneous item lỗi vẫn trả thành công"
+fi
+assert_contains "$TMP_TEST/misc-best-effort.out" "called:flameshot" "Miscellaneous tiếp tục từ Flameshot"
+assert_contains "$TMP_TEST/misc-best-effort.out" "called:warp" "Miscellaneous tiếp tục tới WARP"
+
+run_flameshot_case() {
+    _desktop=$1
+    _spectacle_status=$2
+    _marker=${3:-}
+    _output=$4
+    (
+        . "$ROOT/lib/setup-contract.sh"
+        . "$TMP_TEST/misc-spectacle-installed.fn"
+        . "$TMP_TEST/misc-install-flameshot.fn"
+        info() { printf 'info:%s\n' "$*"; }
+        ok() { printf 'ok:%s\n' "$*"; }
+        wait_apt() { printf 'wait-apt\n'; }
+        apt-get() { printf 'apt:%s\n' "$*"; }
+        dpkg-query() { printf '%s\n' "$TEST_SPECTACLE_STATUS"; }
+        XDG_CURRENT_DESKTOP=$_desktop
+        TEST_SPECTACLE_STATUS=$_spectacle_status
+        SETUP_KDE_SWITCH_MARKER=$_marker
+        install_flameshot
+    ) > "$_output" 2>&1
+}
+
+KDE_SPECTACLE_MARKER="$TMP_TEST/kde-spectacle-marker"
+: > "$KDE_SPECTACLE_MARKER"
+run_flameshot_case KDE installed '' "$TMP_TEST/flameshot-kde.out"
+assert_contains "$TMP_TEST/flameshot-kde.out" "[SKIPPED]" "KDE có Spectacle thì skip Flameshot"
+assert_not_contains "$TMP_TEST/flameshot-kde.out" "apt:" "KDE có Spectacle không gọi apt"
+assert_not_contains "$TMP_TEST/flameshot-kde.out" "wait-apt" "KDE có Spectacle không đợi apt lock"
+
+run_flameshot_case GNOME installed "$KDE_SPECTACLE_MARKER" "$TMP_TEST/flameshot-marker.out"
+assert_contains "$TMP_TEST/flameshot-marker.out" "[SKIPPED]" "marker KDE có Spectacle thì skip Flameshot"
+assert_not_contains "$TMP_TEST/flameshot-marker.out" "apt:" "marker KDE có Spectacle không gọi apt"
+
+run_flameshot_case KDE '' '' "$TMP_TEST/flameshot-no-spectacle.out"
+assert_contains "$TMP_TEST/flameshot-no-spectacle.out" "apt:install -y flameshot" "KDE không có Spectacle vẫn cài Flameshot"
+
+run_flameshot_case GNOME installed '' "$TMP_TEST/flameshot-non-kde.out"
+assert_contains "$TMP_TEST/flameshot-non-kde.out" "apt:install -y flameshot" "non-KDE có Spectacle vẫn cài Flameshot"
 
 assert_not_contains "$TMP_TEST/run-selected-best-effort.fn" "_i=" "Office runner không dùng iterator chung _i"
 assert_contains "$TMP_TEST/run-selected-best-effort.fn" "_selected_item_index=1" "Office runner dùng iterator riêng"
@@ -133,6 +264,7 @@ assert_not_contains "$TMP_TEST/basic-run-selected-best-effort.fn" "_i=" "Basic A
 assert_contains "$TMP_TEST/basic-run-selected-best-effort.fn" "_selected_item_index=1" "Basic Apps runner dùng iterator riêng"
 
 if (
+    . "$ROOT/lib/setup-contract.sh"
     . "$TMP_TEST/flatpak-detect-desktop.fn"
     pgrep() { return 0; }
     XDG_CURRENT_DESKTOP=""
@@ -143,6 +275,39 @@ if (
     pass "Flatpak nhận diện GNOME qua session khi XDG rỗng"
 else
     fail "Flatpak nhận diện GNOME qua session khi XDG rỗng"
+fi
+
+KDE_MARKER="$TMP_TEST/kde-switch-complete"
+: > "$KDE_MARKER"
+if SETUP_KDE_SWITCH_MARKER="$KDE_MARKER" setup_is_kde_desktop GNOME; then
+    pass "marker KDE ghi đè desktop GNOME"
+else
+    fail "marker KDE ghi đè desktop GNOME"
+fi
+
+: > "$TMP_TEST/kde-skip-effects.log"
+if PATH="$KDE_STUB_BIN:$PATH" XDG_CURRENT_DESKTOP=GNOME \
+    SETUP_KDE_SWITCH_MARKER="$KDE_MARKER" \
+    SETUP_SIDE_EFFECT_LOG="$TMP_TEST/kde-skip-effects.log" \
+    sh "$KDE_FILE" > "$TMP_TEST/kde-marker-skip.out" 2>&1 && \
+   [ ! -s "$TMP_TEST/kde-skip-effects.log" ] && \
+   grep -Fq -- '[SKIPPED]' "$TMP_TEST/kde-marker-skip.out"; then
+    pass "marker KDE làm child chuyển KDE skip an toàn"
+else
+    fail "marker KDE làm child chuyển KDE skip an toàn"
+fi
+
+if (
+    . "$ROOT/lib/setup-contract.sh"
+    . "$TMP_TEST/flatpak-detect-desktop.fn"
+    SETUP_KDE_SWITCH_MARKER="$KDE_MARKER"
+    XDG_CURRENT_DESKTOP=GNOME
+    detect_desktop
+    [ "$DESKTOP" = KDE ]
+); then
+    pass "Basics nhận KDE từ marker"
+else
+    fail "Basics nhận KDE từ marker"
 fi
 
 FLATPAK_STUB_BIN="$TMP_TEST/flatpak-stubs"
@@ -273,51 +438,72 @@ for app_name in onlyoffice freeoffice libreoffice; do
 done
 
 OUT="$TMP_TEST/interactive.out"
-if run_parent 's\n1\ns\nr\n' "$OUT"; then
+if run_parent '2\n1\ns\nr\n' "$OUT"; then
     pass "interactive core-only và empty extra exit thành công"
 else
     fail "interactive core-only và empty extra exit thành công"
 fi
 assert_contains "$OUT" "Skipped: no items selected" "review ghi rõ extra rỗng bị skip"
-assert_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "non-Tuxedo variant được chạy"
-assert_not_contains "$TMP_TEST/execution.log" "1-tuxedo.sh|" "Tuxedo variant không chạy trên non-Tuxedo"
+assert_contains "$TMP_TEST/execution.log" "2-debloat-ubuntu-based.sh|desnap|" "non-Tuxedo chạy nhánh desnap trong Basic hợp nhất"
 assert_not_contains "$TMP_TEST/execution.log" "1-items.sh|" "extra không core và không item bị loại execution"
 
 OUT="$TMP_TEST/keep-snap-interactive.out"
-if run_parent 's\n1\ns\nr\n' "$OUT" --keep-snap; then
+if run_parent '2 3\ns\nr\n' "$OUT" --keep-snap; then
     pass "--keep-snap chạy tương tác thành công"
 else
     fail "--keep-snap chạy tương tác thành công"
 fi
-assert_contains "$OUT" "Skipped: --keep-snap" "review hiển thị atom 1 bị skip"
-assert_contains "$OUT" "Non-Tuxedo variant — --keep-snap" "summary ghi lý do skip keep-snap"
-assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "--keep-snap không chạy atom 1 non-Tuxedo"
-assert_contains "$TMP_TEST/execution.log" "2-core.sh|" "--keep-snap vẫn chạy atom 2"
+assert_contains "$TMP_TEST/execution.log" "2-debloat-ubuntu-based.sh|keep-snap|--keep-snap" "--keep-snap được chuyển vào Basic debloat non-Tuxedo"
+assert_contains "$OUT" "SUCCESS" "--keep-snap để child hoàn tất thành công"
+assert_contains "$TMP_TEST/execution.log" "3-core.sh|" "--keep-snap vẫn chạy Basic khác"
 
 OUT="$TMP_TEST/keep-snap-tuxedo.out"
-if SETUP_TEST_TUXEDO_VALUE=1 run_parent 's\n1\ns\nr\n' "$OUT" --keep-snap; then
+if SETUP_TEST_TUXEDO_VALUE=1 run_parent '2\ns\nr\n' "$OUT" --keep-snap; then
     pass "--keep-snap không lỗi trên Tuxedo"
 else
     fail "--keep-snap không lỗi trên Tuxedo"
 fi
-assert_contains "$TMP_TEST/execution.log" "1-tuxedo.sh|" "--keep-snap không skip atom 1 Tuxedo"
+assert_contains "$TMP_TEST/execution.log" "2-debloat-ubuntu-based.sh|tuxedo|--keep-snap" "--keep-snap vẫn chạy nhánh Tuxedo"
 
 OUT="$TMP_TEST/back.out"
-if run_parent '1\nb\ns\ns\nr\n' "$OUT"; then
+if run_parent '4\n1\nb\n4\ns\ns\nr\n' "$OUT"; then
     pass "Back quay lại và cho phép thay selection"
 else
     fail "Back quay lại và cho phép thay selection"
 fi
-assert_contains "$TMP_TEST/execution.log" "3-items.sh|" "atom item stage sau Back chạy core-only"
-assert_not_contains "$TMP_TEST/execution.log" "3-items.sh|1" "selection cũ không bị thực thi sau khi đổi"
+assert_contains "$TMP_TEST/execution.log" "4-items.sh|" "Basic item stage sau Back chạy core-only"
+assert_not_contains "$TMP_TEST/execution.log" "4-items.sh|1" "selection cũ không bị thực thi sau khi đổi"
 
 OUT="$TMP_TEST/required.out"
-if run_parent '\ns\ns\nr\n' "$OUT"; then
+if run_parent '\n2\ns\ns\nr\n' "$OUT"; then
     pass "input rỗng được reprompt"
 else
     fail "input rỗng được reprompt"
 fi
 assert_contains "$OUT" "Bắt buộc nhập lựa chọn" "menu báo lỗi khi Enter rỗng"
+
+OUT="$TMP_TEST/kde-not-selected.out"
+if run_parent '2\ns\nr\n' "$OUT"; then
+    pass "bỏ chọn KDE vẫn tiếp tục chạy Basics khác"
+else
+    fail "bỏ chọn KDE vẫn tiếp tục chạy Basics khác"
+fi
+assert_contains "$OUT" "1. Switch KDE fixture" "review hiển thị KDE bị bỏ chọn"
+assert_contains "$OUT" "Skipped: not selected" "review ghi lý do KDE không được chọn"
+assert_contains "$TMP_TEST/execution.log" "2-debloat-ubuntu-based.sh|desnap|" "bỏ chọn KDE không chặn Debloat"
+
+OUT="$TMP_TEST/kde-failure.out"
+if (
+    SETUP_TEST_KDE_FAIL_VALUE=1
+    run_parent '' "$OUT" --all
+); then
+    fail "lỗi KDE trước marker phải dừng parent"
+else
+    pass "lỗi KDE trước marker dừng parent"
+fi
+assert_contains "$TMP_TEST/execution.log" "1-switch-kde.sh|" "KDE failing child đã được gọi"
+assert_not_contains "$TMP_TEST/execution.log" "2-debloat-ubuntu-based.sh|" "parent không chạy Basic sau KDE lỗi"
+assert_contains "$OUT" "failed=1" "KDE failure được ghi trong summary"
 
 OUT="$TMP_TEST/preset-all.out"
 if run_preset "$OUT" --all; then
@@ -326,8 +512,12 @@ else
     fail "--all áp selection và chạy không tương tác"
 fi
 assert_not_contains "$OUT" "Review execution plan" "--all không hiện review"
-assert_contains "$TMP_TEST/execution.log" "4-office.sh|--all" "--all chọn toàn bộ Office"
-assert_contains "$TMP_TEST/execution.log" "5-basic-apps.sh|--all" "--all chọn toàn bộ Basic Apps"
+assert_contains "$TMP_TEST/execution.log" "5-office.sh|--all" "--all chọn toàn bộ Office"
+assert_contains "$TMP_TEST/execution.log" "4-expand-swapfile.sh|" "--all chọn Basic mở rộng swap"
+assert_contains "$TMP_TEST/execution.log" "1-switch-kde.sh|" "--all chọn Basic chuyển KDE trước"
+assert_contains "$TMP_TEST/execution.log" "3-basics.sh|--all" "--all chọn toàn bộ Basics"
+assert_contains "$TMP_TEST/execution.log" "5-miscellaneous.sh|--all" "--all chọn cả Flameshot và WARP"
+assert_contains "$TMP_TEST/execution.log" "6-basic-apps.sh|--all" "--all chọn toàn bộ Basic Apps"
 assert_contains "$TMP_TEST/execution.log" "1-chat.sh|--all" "--all chọn toàn bộ Chat"
 assert_contains "$TMP_TEST/execution.log" "2-dev.sh|" "--all enable Dev Tools core-only"
 assert_not_contains "$TMP_TEST/execution.log" "2-dev.sh|--all" "--all không truyền argument cho extra core-only"
@@ -339,8 +529,8 @@ if run_preset "$OUT" --all --keep-snap; then
 else
     fail "--keep-snap hoạt động cùng --all"
 fi
-assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "--all --keep-snap skip atom 1"
-assert_contains "$TMP_TEST/execution.log" "2-flatpak.sh|" "--all --keep-snap vẫn chạy atom 2"
+assert_contains "$TMP_TEST/execution.log" "2-debloat-ubuntu-based.sh|keep-snap|--keep-snap" "--all chuyển --keep-snap vào Basic debloat"
+assert_contains "$TMP_TEST/execution.log" "3-basics.sh|--all" "--all --keep-snap vẫn chọn Basics"
 
 OUT="$TMP_TEST/preset-ms.out"
 if run_preset "$OUT" --pack-ms; then
@@ -349,9 +539,13 @@ else
     fail "--pack-ms chạy không tương tác"
 fi
 assert_not_contains "$OUT" "Review execution plan" "--pack-ms không hiện review"
-assert_contains "$TMP_TEST/execution.log" "4-office.sh|1" "--pack-ms chỉ chọn OnlyOffice"
-assert_not_contains "$TMP_TEST/execution.log" "4-office.sh|--all" "--pack-ms không chọn Office khác"
-assert_contains "$TMP_TEST/execution.log" "5-basic-apps.sh|--all" "--pack-ms chọn toàn bộ Basic Apps"
+assert_contains "$TMP_TEST/execution.log" "5-office.sh|1" "--pack-ms chỉ chọn OnlyOffice"
+assert_contains "$TMP_TEST/execution.log" "4-expand-swapfile.sh|" "--pack-ms chạy Basic mở rộng swap"
+assert_contains "$TMP_TEST/execution.log" "3-basics.sh|--all" "--pack-ms chọn toàn bộ Basics"
+assert_not_contains "$TMP_TEST/execution.log" "1-switch-kde.sh|" "--pack-ms không chạy Basic chuyển KDE"
+assert_contains "$TMP_TEST/execution.log" "5-miscellaneous.sh|1" "--pack-ms chỉ chọn Flameshot"
+assert_not_contains "$TMP_TEST/execution.log" "5-office.sh|--all" "--pack-ms không chọn Office khác"
+assert_contains "$TMP_TEST/execution.log" "6-basic-apps.sh|--all" "--pack-ms chọn toàn bộ Basic Apps"
 assert_contains "$TMP_TEST/execution.log" "1-chat.sh|--all" "--pack-ms chọn toàn bộ Chat"
 assert_contains "$TMP_TEST/execution.log" "4-ai.sh|--all" "--pack-ms chọn toàn bộ AI"
 
@@ -361,8 +555,8 @@ if run_preset "$OUT" --pack-ms --keep-snap; then
 else
     fail "--keep-snap hoạt động cùng --pack-ms"
 fi
-assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "--pack-ms --keep-snap skip atom 1"
-assert_contains "$TMP_TEST/execution.log" "2-flatpak.sh|" "--pack-ms --keep-snap vẫn chạy atom 2"
+assert_contains "$TMP_TEST/execution.log" "2-debloat-ubuntu-based.sh|keep-snap|--keep-snap" "--pack-ms chuyển --keep-snap vào Basic debloat"
+assert_contains "$TMP_TEST/execution.log" "3-basics.sh|--all" "--pack-ms --keep-snap vẫn chọn Basics"
 
 OUT="$TMP_TEST/preset-bs.out"
 if run_preset "$OUT" --pack-bs; then
@@ -371,9 +565,12 @@ else
     fail "--pack-bs chạy không tương tác"
 fi
 assert_not_contains "$OUT" "Review execution plan" "--pack-bs không hiện review"
-assert_contains "$TMP_TEST/execution.log" "4-office.sh|1" "--pack-bs chọn OnlyOffice"
-assert_contains "$TMP_TEST/execution.log" "5-basic-apps.sh|1" "--pack-bs chọn Chrome"
-assert_contains "$TMP_TEST/execution.log" "2-flatpak.sh|" "--pack-bs vẫn chạy atom core"
+assert_contains "$TMP_TEST/execution.log" "4-expand-swapfile.sh|" "--pack-bs chạy Basic mở rộng swap"
+assert_contains "$TMP_TEST/execution.log" "5-office.sh|1" "--pack-bs chọn OnlyOffice"
+assert_contains "$TMP_TEST/execution.log" "6-basic-apps.sh|1" "--pack-bs chọn Chrome"
+assert_contains "$TMP_TEST/execution.log" "3-basics.sh|--all" "--pack-bs chọn toàn bộ Basics"
+assert_not_contains "$TMP_TEST/execution.log" "1-switch-kde.sh|" "--pack-bs không chạy Basic chuyển KDE"
+assert_contains "$TMP_TEST/execution.log" "5-miscellaneous.sh|1" "--pack-bs chỉ chọn Flameshot"
 assert_contains "$TMP_TEST/execution.log" "1-chat.sh|2" "--pack-bs chọn Mattermost"
 assert_not_contains "$TMP_TEST/execution.log" "2-dev.sh|" "--pack-bs skip Dev Tools"
 assert_contains "$TMP_TEST/execution.log" "3-ime-shortcut.sh|" "--pack-bs enable shortcut IME"
@@ -385,8 +582,8 @@ if run_preset "$OUT" --pack-bs --keep-snap; then
 else
     fail "--keep-snap hoạt động cùng --pack-bs"
 fi
-assert_not_contains "$TMP_TEST/execution.log" "1-non-tuxedo.sh|" "--pack-bs --keep-snap skip atom 1"
-assert_contains "$TMP_TEST/execution.log" "2-flatpak.sh|" "--pack-bs --keep-snap vẫn chạy atom 2"
+assert_contains "$TMP_TEST/execution.log" "2-debloat-ubuntu-based.sh|keep-snap|--keep-snap" "--pack-bs chuyển --keep-snap vào Basic debloat"
+assert_contains "$TMP_TEST/execution.log" "3-basics.sh|--all" "--pack-bs --keep-snap vẫn chọn Basics"
 
 OUT="$TMP_TEST/preset-invalid.out"
 if run_preset "$OUT" --all --pack-ms; then
@@ -451,10 +648,28 @@ for command_name in apt-get curl gpg; do
 done
 
 if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
-    sh "$IME_FILE" > "$TMP_TEST/ime-core-failure.out" 2>&1; then
+    sh "$BASICS_FILE" 2 > "$TMP_TEST/ime-core-failure.out" 2>&1; then
     fail "IME core failure phải trả non-zero"
 else
     pass "IME core failure vẫn trả non-zero"
+fi
+: > "$TMP_TEST/side-effects.log"
+
+if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
+    sh "$BASICS_FILE" > "$TMP_TEST/basics-empty.out" 2>&1 && \
+   [ ! -s "$TMP_TEST/side-effects.log" ]; then
+    pass "Basics no-argument không gọi apt/curl/gpg"
+else
+    fail "Basics no-argument không gọi apt/curl/gpg"
+fi
+: > "$TMP_TEST/side-effects.log"
+
+if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
+    sh "$MISC_FILE" > "$TMP_TEST/misc-empty.out" 2>&1 && \
+   [ ! -s "$TMP_TEST/side-effects.log" ]; then
+    pass "Miscellaneous no-argument không gọi apt/curl/gpg"
+else
+    fail "Miscellaneous no-argument không gọi apt/curl/gpg"
 fi
 : > "$TMP_TEST/side-effects.log"
 

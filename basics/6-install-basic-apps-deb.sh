@@ -1,11 +1,11 @@
 #!/bin/sh
-# @setup-description: Cài các app cơ bản
+# @setup-description: Cài các app cơ bản (Chrome, Chromium, VSCode, )
 # @setup-when: always
 # @setup-item: install_chrome|Google Chrome
 # @setup-item: install_chromium|Chromium (.deb thật)
 # @setup-item: install_vscode|Visual Studio Code
-# 5-install-basic-apps-deb.sh — Ubuntu/Debian: cài các ứng dụng cơ bản tùy chọn
-# Chạy: sudo ./5-install-basic-apps-deb.sh [--all|-a|item-number ...]
+# 6-install-basic-apps-deb.sh — Ubuntu/Debian: cài các ứng dụng cơ bản tùy chọn
+# Chạy: sudo ./6-install-basic-apps-deb.sh [--all|-a|item-number ...]
 
 set -e
 

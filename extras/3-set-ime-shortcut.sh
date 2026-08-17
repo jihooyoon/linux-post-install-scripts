@@ -39,7 +39,9 @@ HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
 # Chạy qua sudo nên XDG_CURRENT_DESKTOP thường bị reset (rỗng) — fallback đoán
 # theo process của session đồ họa đang chạy của user
 DESKTOP=$XDG_CURRENT_DESKTOP
-if [ -z "$DESKTOP" ]; then
+if setup_is_kde_desktop "$DESKTOP"; then
+    DESKTOP=KDE
+elif [ -z "$DESKTOP" ]; then
     pgrep -u "$SUDO_USER" -x gnome-shell >/dev/null 2>&1 && DESKTOP=GNOME
     pgrep -u "$SUDO_USER" -x plasmashell >/dev/null 2>&1 && DESKTOP=KDE
 fi

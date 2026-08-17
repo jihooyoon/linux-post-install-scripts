@@ -42,6 +42,27 @@ setup_has_word() {
     esac
 }
 
+setup_kde_switch_marker() {
+    printf '%s\n' "${SETUP_KDE_SWITCH_MARKER:-/var/lib/linux-post-install-scripts/kde-switch-complete}"
+}
+
+setup_kde_switch_succeeded() {
+    [ -f "$(setup_kde_switch_marker)" ]
+}
+
+setup_is_kde_desktop() {
+    _setup_desktop=${1:-${XDG_CURRENT_DESKTOP:-}}
+    case "$_setup_desktop" in
+        *KDE*|*Plasma*) return 0 ;;
+    esac
+    setup_kde_switch_succeeded
+}
+
+setup_child_skip() {
+    printf '\033[1;33m[SKIPPED]\033[0m %s\n' "$*"
+    exit 0
+}
+
 setup_validate_metadata() {
     _setup_file=$1
 
@@ -70,7 +91,7 @@ setup_validate_metadata() {
         return 1
     fi
     case "$_setup_when" in
-        always|tuxedo|non-tuxedo) ;;
+        always) ;;
         *)
             setup_contract_error "$_setup_file: when không hợp lệ: $_setup_when"
             return 1
@@ -240,15 +261,4 @@ setup_run_selected() {
     done <<EOF
 $_setup_items_text
 EOF
-}
-
-setup_when_applies() {
-    _setup_condition=$1
-    _setup_is_tuxedo=$2
-    case "$_setup_condition" in
-        always) return 0 ;;
-        tuxedo) [ "$_setup_is_tuxedo" -eq 1 ] ;;
-        non-tuxedo) [ "$_setup_is_tuxedo" -eq 0 ] ;;
-        *) return 1 ;;
-    esac
 }

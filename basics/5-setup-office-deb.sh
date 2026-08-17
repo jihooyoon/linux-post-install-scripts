@@ -1,11 +1,11 @@
 #!/bin/sh
-# @setup-description: Cài Office
+# @setup-description: Thiết lập Office
 # @setup-when: always
 # @setup-item: install_onlyoffice|OnlyOffice (Tương thích tốt, hiệu năng ổn)
 # @setup-item: install_freeoffice|FreeOffice 2024 (Tương thích ổn, hiệu năng tốt)
 # @setup-item: install_libreoffice|LibreOffice (Tương thích kém, hiệu năng tốt)
-# 4-setup-office-deb.sh — Ubuntu/Debian: cài bộ Office tùy chọn
-# Chạy: sudo ./4-setup-office-deb.sh [--all|-a|item-number ...]
+# 5-setup-office-deb.sh — Ubuntu/Debian: cài bộ Office tùy chọn
+# Chạy: sudo ./5-setup-office-deb.sh [--all|-a|item-number ...]
 
 set -e
 

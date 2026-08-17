@@ -1,5 +1,5 @@
 #!/bin/sh
-# @setup-description: Atom items fixture
+# @setup-description: Basic items fixture
 # @setup-when: always
 # @setup-core-description: atom item fixture core
 # @setup-item: first_item|First atom item
