@@ -8,10 +8,10 @@
 
 ## Contract metadata của script con (R.1)
 
-Mỗi file `<số>-*.sh` trong `atom-scripts` và `extras` khai báo metadata trong header để parent và child cùng đọc từ một nguồn:
+Mỗi file `<số>-*.sh` trong `basics` và `extras` khai báo metadata trong header để parent và child cùng đọc từ một nguồn:
 
 - `description`: bắt buộc, mô tả ngắn gọn script.
-- `when`: bắt buộc, một trong `always`, `tuxedo`, `non-tuxedo`.
+- `when`: bắt buộc, luôn là `always`.
 - `core-description`: không bắt buộc; mô tả phần luôn chạy dù không chọn item.
 - `item`: zero hoặc nhiều dòng `function|label`; số argument được tính động theo thứ tự các dòng.
 
@@ -30,7 +30,7 @@ Script con không còn menu và không đọc `/dev/tty`.
 
 ## Phân loại core/item tại mốc migrate
 
-### Atom scripts
+### Basic scripts
 
 - De-snap, Tuxedo generalization, Flatpak/Flathub, IME (fcitx5) và Lotus: toàn bộ logic hiện tại là core.
 - Office: FreeOffice và LibreOffice là item; khi chỉ chọn một bộ thì gỡ best-effort bộ còn lại.
