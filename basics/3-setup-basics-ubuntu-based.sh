@@ -166,10 +166,41 @@ do_install_lotus() {
     # Nạp module uinput ngay để server tạo được thiết bị input ảo (lần khởi động sau tự nạp)
     sudo modprobe uinput
     detect_desktop
-    mkdir -p /etc/environment.d
-    if [ ! -f /etc/environment.d/fcitx5.conf ]; then
-        printf 'XMODIFIERS=@im=fcitx\nGLFW_IM_MODULE=ibus\n' > /etc/environment.d/fcitx5.conf
-        case "$DESKTOP" in *KDE*|*Plasma*) ;; *) printf 'QT_IM_MODULE=fcitx\nQT_IM_MODULES="wayland;fcitx"\n' >> /etc/environment.d/fcitx5.conf ;; esac
+    # Bản cũ đặt biến môi trường ở /etc/environment.d — giờ ghi vào profile của user theo guide
+    if [ -f /etc/environment.d/fcitx5.conf ]; then
+        rm -f /etc/environment.d/fcitx5.conf
+        ok "Đã xoá /etc/environment.d/fcitx5.conf (bản cũ)"
+    fi
+    # Biến môi trường theo guide: Bash → ~/.bash_profile, Zsh → ~/.zprofile
+    if has_real_user; then
+        HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+        USER_SHELL=$(getent passwd "$SUDO_USER" | cut -d: -f7)
+        case "$USER_SHELL" in
+            */bash) SHELL_PROFILE="$HOME_USER/.bash_profile" ;;
+            */zsh) SHELL_PROFILE="$HOME_USER/.zprofile" ;;
+            *) SHELL_PROFILE="" ;;
+        esac
+        if [ -z "$SHELL_PROFILE" ]; then
+            warn "Shell $USER_SHELL chưa được hỗ trợ — bỏ qua biến môi trường fcitx5, tự thêm theo guide Lotus"
+        else
+            case "$DESKTOP" in
+                *KDE*|*Plasma*) ENV_VARS='export XMODIFIERS=@im=fcitx
+export GLFW_IM_MODULE=ibus' ;;
+                *) ENV_VARS='export XMODIFIERS=@im=fcitx
+export QT_IM_MODULE=fcitx
+export QT_IM_MODULES="wayland;fcitx"
+export GLFW_IM_MODULE=ibus' ;;
+            esac
+            # Tạo mới ~/.bash_profile thì bash sẽ bỏ qua ~/.profile — nạp lại ~/.profile ở đầu file
+            if [ "$SHELL_PROFILE" = "$HOME_USER/.bash_profile" ] && [ ! -f "$SHELL_PROFILE" ]; then
+                printf '[ -f ~/.profile ] && . ~/.profile\n' | sudo -u "$SUDO_USER" tee "$SHELL_PROFILE" >/dev/null
+            fi
+            # Ghi đè khối cũ (nếu có) để chạy lại không bị nhân đôi
+            [ ! -f "$SHELL_PROFILE" ] || sudo -u "$SUDO_USER" sed -i '/^# >>> fcitx5-lotus >>>$/,/^# <<< fcitx5-lotus <<<$/d' "$SHELL_PROFILE"
+            printf '# >>> fcitx5-lotus >>>\n%s\n# <<< fcitx5-lotus <<<\n' "$ENV_VARS" | sudo -u "$SUDO_USER" tee -a "$SHELL_PROFILE" >/dev/null
+            ok "Đã ghi biến môi trường fcitx5 vào $SHELL_PROFILE"
+        fi
+    else warn_no_real_user "biến môi trường fcitx5"
     fi
     case "$DESKTOP" in
         *KDE*|*Plasma*)

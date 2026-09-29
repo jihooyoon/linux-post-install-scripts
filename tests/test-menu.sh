@@ -145,7 +145,11 @@ assert_contains "$KDE_FILE" 'mark_kde_switch_succeeded' "KDE ghi marker sau khi 
 assert_contains "$KDE_FILE" 'return 1' "Lỗi chuyển KDE trước marker làm child thất bại"
 assert_contains "$DEBLOAT_FILE" 'setup_is_kde_desktop' "Debloat dùng nhận diện KDE chung"
 assert_contains "$BASICS_FILE" 'setup_is_kde_desktop' "Basics dùng nhận diện KDE chung"
-for real_user_part in "bật kimpanel" "autostart fcitx5" "bật fcitx5-lotus-server" "kwinrc (chọn fcitx5 làm Virtual Keyboard)" "thêm Lotus vào profile fcitx5"; do
+assert_contains "$BASICS_FILE" '*/bash) SHELL_PROFILE="$HOME_USER/.bash_profile"' "Lotus ghi biến môi trường Bash vào ~/.bash_profile"
+assert_contains "$BASICS_FILE" '*/zsh) SHELL_PROFILE="$HOME_USER/.zprofile"' "Lotus ghi biến môi trường Zsh vào ~/.zprofile"
+assert_contains "$BASICS_FILE" 'rm -f /etc/environment.d/fcitx5.conf' "Lotus xoá biến môi trường bản cũ ở /etc/environment.d"
+assert_not_contains "$BASICS_FILE" '> /etc/environment.d/fcitx5.conf' "Lotus không còn ghi /etc/environment.d"
+for real_user_part in "bật kimpanel" "autostart fcitx5" "bật fcitx5-lotus-server" "kwinrc (chọn fcitx5 làm Virtual Keyboard)" "thêm Lotus vào profile fcitx5" "biến môi trường fcitx5"; do
     assert_contains "$BASICS_FILE" "warn_no_real_user \"$real_user_part\"" "Basics thiếu user sudo: warning và bỏ qua $real_user_part"
 done
 IME_CONFIGS_FILE="$ROOT/extras/3-set-ime-configs.sh"
