@@ -148,34 +148,11 @@ do_install_lotus() {
     apt-get update || return $?
     apt-get install -y fcitx5-lotus || return $?
     dpkg -l fcitx5-lotus 2>/dev/null | grep -q '^ii' || die "fcitx5-lotus cài chưa thành công"
-    info "Bước 2: Nạp uinput và kích hoạt fcitx5-lotus-server..."
-    modprobe uinput || warn "Không nạp được module uinput — sẽ tự nạp ở lần khởi động sau"
-    if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != root ]; then
-        LOTUS_SERVICE="fcitx5-lotus-server@$SUDO_USER.service"
-        if systemctl enable "$LOTUS_SERVICE" || { systemd-sysusers && systemctl enable "$LOTUS_SERVICE"; }; then
-            if systemctl restart "$LOTUS_SERVICE"; then ok "Đã kích hoạt $LOTUS_SERVICE"
-            else warn "Đã enable $LOTUS_SERVICE nhưng chưa start được — sẽ chạy ở lần khởi động sau"
-            fi
-        else warn "Không enable được $LOTUS_SERVICE — chạy tay: sudo systemctl enable --now $LOTUS_SERVICE"
-        fi
-    else warn "Không xác định được user — bỏ qua kích hoạt fcitx5-lotus-server"
-    fi
     detect_desktop
-    info "Bước 3: Ghi biến môi trường cho fcitx5..."
     mkdir -p /etc/environment.d
-    ENV_FILE=/etc/environment.d/fcitx5.conf
-    case "$DESKTOP" in
-        *KDE*|*Plasma*) ENV_VARS='XMODIFIERS=@im=fcitx\nGLFW_IM_MODULE=ibus\n' ;;
-        *GNOME*|*[Ss]way*) ENV_VARS='XMODIFIERS=@im=fcitx\nQT_IM_MODULE=fcitx\nQT_IM_MODULES="wayland;fcitx"\nGLFW_IM_MODULE=ibus\n' ;;
-        *) ENV_VARS='GTK_IM_MODULE=fcitx\nQT_IM_MODULE=fcitx\nXMODIFIERS=@im=fcitx\nSDL_IM_MODULE=fcitx\nGLFW_IM_MODULE=ibus\n' ;;
-    esac
-    ENV_NEW=$(printf "$ENV_VARS")
-    if [ -f "$ENV_FILE" ] && [ "$(cat "$ENV_FILE")" = "$ENV_NEW" ]; then
-        ok "$ENV_FILE đã đúng — bỏ qua"
-    else
-        [ ! -f "$ENV_FILE" ] || { cp "$ENV_FILE" "$ENV_FILE.bak"; warn "Đã sao lưu $ENV_FILE cũ sang $ENV_FILE.bak"; }
-        printf '%s\n' "$ENV_NEW" > "$ENV_FILE"
-        ok "Đã ghi $ENV_FILE"
+    if [ ! -f /etc/environment.d/fcitx5.conf ]; then
+        printf 'XMODIFIERS=@im=fcitx\nGLFW_IM_MODULE=ibus\n' > /etc/environment.d/fcitx5.conf
+        case "$DESKTOP" in *KDE*|*Plasma*) ;; *) printf 'QT_IM_MODULE=fcitx\nQT_IM_MODULES="wayland;fcitx"\n' >> /etc/environment.d/fcitx5.conf ;; esac
     fi
     case "$DESKTOP" in
         *KDE*|*Plasma*)
