@@ -48,6 +48,14 @@ detect_desktop() {
     fi
 }
 
+# Config IME theo user nằm trong home của user thật (SUDO_USER); thiếu thì bỏ qua phần đó
+has_real_user() {
+    [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != root ]
+}
+warn_no_real_user() {
+    warn "Không phát hiện user sudo — bỏ qua $1; chạy lại qua sudo từ user hiện tại để thiết lập nốt: sudo $0"
+}
+
 install_gui_backend() {
     info "Bước 4: Cài plugin hiển thị flatpak trong App Center..."
     case "$DESKTOP" in
@@ -96,7 +104,9 @@ do_setup_ime() {
     done
     apt-get install -y $PKGS || return $?
     if [ "$KIM" -eq 1 ]; then
-        [ -z "$SUDO_USER" ] || sudo -u "$SUDO_USER" gnome-extensions enable kimpanel@wengxt 2>/dev/null || true
+        if has_real_user; then sudo -u "$SUDO_USER" gnome-extensions enable kimpanel@wengxt 2>/dev/null || true
+        else warn_no_real_user "bật kimpanel"
+        fi
         ok "Đã cài kimpanel — đăng xuất/đăng nhập lại để hiển thị status bar"
     fi
     info "Bước 3: Purge ibus và thêm fcitx5 vào autostart..."
@@ -107,7 +117,7 @@ do_setup_ime() {
         ok "Đã purge sạch ibus"
     else ok "ibus chưa được cài — bỏ qua"
     fi
-    if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != root ]; then
+    if has_real_user; then
         HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
         AUTOSTART="$HOME_USER/.config/autostart"
         sudo -u "$SUDO_USER" mkdir -p "$AUTOSTART"
@@ -127,7 +137,7 @@ EOF
             chown "$SUDO_USER" "$AUTOSTART/org.fcitx.Fcitx5.desktop"
         fi
         ok "Đã thêm fcitx5 vào autostart của $SUDO_USER"
-    else warn "Không xác định được user — bỏ qua bước autostart"
+    else warn_no_real_user "autostart fcitx5"
     fi
 }
 
@@ -149,7 +159,10 @@ do_install_lotus() {
     apt-get install -y fcitx5-lotus || return $?
     dpkg -l fcitx5-lotus 2>/dev/null | grep -q '^ii' || die "fcitx5-lotus cài chưa thành công"
     # Bật server Lotus cho user thật; lỗi thì tạo user uinput_proxy bằng systemd-sysusers rồi thử lại
-    sudo systemctl enable --now fcitx5-lotus-server@$SUDO_USER.service || (sudo systemd-sysusers && sudo systemctl enable --now fcitx5-lotus-server@$SUDO_USER.service)
+    if has_real_user; then
+        sudo systemctl enable --now fcitx5-lotus-server@$SUDO_USER.service || (sudo systemd-sysusers && sudo systemctl enable --now fcitx5-lotus-server@$SUDO_USER.service)
+    else warn_no_real_user "bật fcitx5-lotus-server"
+    fi
     # Nạp module uinput ngay để server tạo được thiết bị input ảo (lần khởi động sau tự nạp)
     sudo modprobe uinput
     detect_desktop
@@ -160,7 +173,7 @@ do_install_lotus() {
     fi
     case "$DESKTOP" in
         *KDE*|*Plasma*)
-            if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != root ]; then
+            if has_real_user; then
                 HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
                 KWINRC="$HOME_USER/.config/kwinrc"
                 sudo -u "$SUDO_USER" mkdir -p "$HOME_USER/.config"
@@ -173,10 +186,11 @@ do_install_lotus() {
                     chown "$SUDO_USER" "$KWINRC"
                     ok "Đã ghi kwinrc InputMethod=fcitx5"
                 fi
+            else warn_no_real_user "kwinrc (chọn fcitx5 làm Virtual Keyboard)"
             fi
             ;;
     esac
-    if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != root ]; then
+    if has_real_user; then
         HOME_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
         PROFILE="$HOME_USER/.config/fcitx5/profile"
         sudo -u "$SUDO_USER" mkdir -p "$HOME_USER/.config/fcitx5/conf"
@@ -200,9 +214,11 @@ EOF
             printf '\n[Groups/0/Items/%s]\nName=lotus\nLayout=\n' "$N" >> "$PROFILE"
         fi
         chown "$SUDO_USER" "$PROFILE"
-    else warn "Không xác định được user — bỏ qua profile Lotus"
+    else warn_no_real_user "thêm Lotus vào profile fcitx5"
     fi
-    ok "Lotus đã sẵn sàng; đăng xuất/đăng nhập lại để áp dụng"
+    if has_real_user; then ok "Lotus đã sẵn sàng; đăng xuất/đăng nhập lại để áp dụng"
+    else warn "Lotus mới thiết lập một phần — chạy lại qua sudo từ user hiện tại để thiết lập nốt: sudo $0"
+    fi
 }
 
 BASICS_FAILURES=0
