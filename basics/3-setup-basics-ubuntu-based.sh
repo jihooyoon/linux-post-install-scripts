@@ -201,10 +201,6 @@ EOF
         fi
         chown "$SUDO_USER" "$PROFILE"
         FCONF_DIR="$HOME_USER/.config/fcitx5/conf"
-        if [ ! -f "$FCONF_DIR/lotus-app-rules.conf" ]; then
-            printf 'slack=4\nplanmaker24free=4\ntextmaker24free=4\npresentations24free=4\n' > "$FCONF_DIR/lotus-app-rules.conf"
-            chown "$SUDO_USER" "$FCONF_DIR/lotus-app-rules.conf"
-        fi
         if [ ! -f "$FCONF_DIR/lotus.conf" ]; then
             cat > "$FCONF_DIR/lotus.conf" <<'EOF'
 Mode="Uinput (Super Smooth)"
