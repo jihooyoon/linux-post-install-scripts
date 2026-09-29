@@ -148,7 +148,9 @@ do_install_lotus() {
     apt-get update || return $?
     apt-get install -y fcitx5-lotus || return $?
     dpkg -l fcitx5-lotus 2>/dev/null | grep -q '^ii' || die "fcitx5-lotus cài chưa thành công"
+    # Bật server Lotus cho user thật; lỗi thì tạo user uinput_proxy bằng systemd-sysusers rồi thử lại
     sudo systemctl enable --now fcitx5-lotus-server@$SUDO_USER.service || (sudo systemd-sysusers && sudo systemctl enable --now fcitx5-lotus-server@$SUDO_USER.service)
+    # Nạp module uinput ngay để server tạo được thiết bị input ảo (lần khởi động sau tự nạp)
     sudo modprobe uinput
     detect_desktop
     mkdir -p /etc/environment.d
