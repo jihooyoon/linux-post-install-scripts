@@ -40,7 +40,8 @@ Script con không còn menu và không đọc `/dev/tty`.
 
 - AI Tools: không có core; Claude Desktop, Claude Code CLI và Codex CLI là item.
 - Chat Apps: không có core; Slack, Mattermost và Discord là item.
-- IME Shortcut và Dev Tools: toàn bộ logic hiện tại là core, chưa tách item.
+- IME Configs: không có core; shortcut chuyển gõ vi/en và gõ tiếng Việt không gạch chân (Lotus Uinput Super Smooth) là item. Item Lotus báo lỗi và bỏ qua nếu chưa cài `fcitx5-lotus`.
+- Dev Tools: toàn bộ logic hiện tại là core, chưa tách item.
 
 AI Tools và Chat Apps không được cài dependency hoặc sửa hệ thống khi không chọn item. Nếu một extra không có core và không chọn item, parent loại nó khỏi execution plan và review ghi `Skipped: no items selected`.
 
@@ -65,7 +66,7 @@ Atom scripts dùng order slot:
 5. Basic Apps.
 6. Lotus.
 
-Extras đánh số độc lập theo thứ tự hiện tại: `1` AI Tools, `2` IME Shortcut, `3` Chat Apps, `4` Dev Tools.
+Extras đánh số độc lập theo thứ tự hiện tại: `1` Chat Apps, `2` Dev Tools, `3` IME Configs, `4` AI Tools, `5` Miscellaneous.
 
 Parent chỉ scan `<số>-*.sh`, lọc `when` theo `/etc/os-release` trước khi build menu và execution plan. Slot `1` phải còn đúng một variant; duplicate active slot hoặc không chọn được variant là failure nhưng không chặn các slot khác.
 

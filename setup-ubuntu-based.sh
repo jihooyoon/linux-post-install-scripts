@@ -24,7 +24,7 @@ Usage: sudo $0 [--all|-a|--pack-ms|--pack-bs] [--keep-snap] [--help|-h]
   (không đối số)  Mở menu động, review rồi chạy
   --all, -a       Chọn toàn bộ Basics và extras, không hiện menu
   --pack-ms       Chọn OnlyOffice, mở rộng swap; trừ Basic chuyển KDE, các mục khác chọn tất cả
-  --pack-bs       Preset cơ bản: swap, OnlyOffice, Chrome, Mattermost, shortcut IME và Claude Desktop
+  --pack-bs       Preset cơ bản: Flatpak, IME, Lotus, swap, OnlyOffice, Chrome, Mattermost, Flameshot và Claude Desktop
   --keep-snap     Giữ Snap; Basic De-bloat tự bỏ de-snap trên máy non-Tuxedo
   --help, -h      In trợ giúp này
 
@@ -246,7 +246,7 @@ apply_preset() {
             set_selection basic 3 --all
             set_selection basic 5 1
             set_selection basic 6 1
-            printf '1 3 4 5\n' > "$EXTRA_SELECTED_FILE"
+            printf '1 4 5\n' > "$EXTRA_SELECTED_FILE"
             set_selection extra 1 2
             set_selection extra 4 1
             set_selection extra 5 1

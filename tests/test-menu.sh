@@ -145,7 +145,18 @@ assert_contains "$KDE_FILE" 'mark_kde_switch_succeeded' "KDE ghi marker sau khi 
 assert_contains "$KDE_FILE" 'return 1' "Lỗi chuyển KDE trước marker làm child thất bại"
 assert_contains "$DEBLOAT_FILE" 'setup_is_kde_desktop' "Debloat dùng nhận diện KDE chung"
 assert_contains "$BASICS_FILE" 'setup_is_kde_desktop' "Basics dùng nhận diện KDE chung"
-assert_contains "$ROOT/extras/3-set-ime-shortcut.sh" 'setup_is_kde_desktop' "IME shortcut dùng nhận diện KDE chung"
+IME_CONFIGS_FILE="$ROOT/extras/3-set-ime-configs.sh"
+assert_contains "$IME_CONFIGS_FILE" 'setup_is_kde_desktop' "IME shortcut dùng nhận diện KDE chung"
+if setup_validate_metadata "$IME_CONFIGS_FILE" && \
+   [ "$(setup_item_count "$IME_CONFIGS_FILE")" -eq 2 ] && \
+   [ -z "$(setup_core_description "$IME_CONFIGS_FILE")" ]; then
+    pass "IME configs có 2 item, không có core"
+else
+    fail "IME configs có 2 item, không có core"
+fi
+assert_contains "$IME_CONFIGS_FILE" 'Mode="Uinput (Super Smooth)"' "IME configs ghi lotus.conf Super Smooth"
+assert_contains "$IME_CONFIGS_FILE" 'Chưa cài fcitx5-lotus' "IME configs báo lỗi khi chưa cài Lotus"
+assert_not_contains "$BASICS_FILE" 'lotus.conf' "Basics không còn ghi lotus.conf"
 assert_contains "$ROOT/setup-ubuntu-based.sh" 'setup_is_kde_desktop "$_desktop"' "GNOME notice dùng nhận diện KDE chung"
 
 KDE_STUB_BIN="$TMP_TEST/kde-stubs"
@@ -522,6 +533,7 @@ assert_contains "$TMP_TEST/execution.log" "1-chat.sh|--all" "--all chọn toàn 
 assert_contains "$TMP_TEST/execution.log" "2-dev.sh|" "--all enable Dev Tools core-only"
 assert_not_contains "$TMP_TEST/execution.log" "2-dev.sh|--all" "--all không truyền argument cho extra core-only"
 assert_contains "$TMP_TEST/execution.log" "4-ai.sh|--all" "--all chọn toàn bộ AI"
+assert_contains "$TMP_TEST/execution.log" "3-ime-configs.sh|--all" "--all chọn toàn bộ IME configs"
 
 OUT="$TMP_TEST/preset-all-keep-snap.out"
 if run_preset "$OUT" --all --keep-snap; then
@@ -548,6 +560,7 @@ assert_not_contains "$TMP_TEST/execution.log" "5-office.sh|--all" "--pack-ms kh�
 assert_contains "$TMP_TEST/execution.log" "6-basic-apps.sh|--all" "--pack-ms chọn toàn bộ Basic Apps"
 assert_contains "$TMP_TEST/execution.log" "1-chat.sh|--all" "--pack-ms chọn toàn bộ Chat"
 assert_contains "$TMP_TEST/execution.log" "4-ai.sh|--all" "--pack-ms chọn toàn bộ AI"
+assert_contains "$TMP_TEST/execution.log" "3-ime-configs.sh|--all" "--pack-ms chọn toàn bộ IME configs"
 
 OUT="$TMP_TEST/preset-ms-keep-snap.out"
 if run_preset "$OUT" --pack-ms --keep-snap; then
@@ -573,7 +586,7 @@ assert_not_contains "$TMP_TEST/execution.log" "1-switch-kde.sh|" "--pack-bs khô
 assert_contains "$TMP_TEST/execution.log" "5-miscellaneous.sh|1" "--pack-bs chỉ chọn Flameshot"
 assert_contains "$TMP_TEST/execution.log" "1-chat.sh|2" "--pack-bs chọn Mattermost"
 assert_not_contains "$TMP_TEST/execution.log" "2-dev.sh|" "--pack-bs skip Dev Tools"
-assert_contains "$TMP_TEST/execution.log" "3-ime-shortcut.sh|" "--pack-bs enable shortcut IME"
+assert_not_contains "$TMP_TEST/execution.log" "3-ime-configs.sh|" "--pack-bs không chọn IME configs"
 assert_contains "$TMP_TEST/execution.log" "4-ai.sh|1" "--pack-bs chọn Claude Desktop"
 
 OUT="$TMP_TEST/preset-bs-keep-snap.out"

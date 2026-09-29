@@ -200,58 +200,7 @@ EOF
             printf '\n[Groups/0/Items/%s]\nName=lotus\nLayout=\n' "$N" >> "$PROFILE"
         fi
         chown "$SUDO_USER" "$PROFILE"
-        FCONF_DIR="$HOME_USER/.config/fcitx5/conf"
-        if [ ! -f "$FCONF_DIR/lotus.conf" ]; then
-            cat > "$FCONF_DIR/lotus.conf" <<'EOF'
-Mode="Uinput (Super Smooth)"
-InputMethod=Telex
-OutputCharset=Unicode
-CycleModeKey=
-W2U=Non-Start
-BracketTransform=Disabled
-SpellCheck=True
-EnableMacro=True
-CapitalizeMacro=True
-AutoCapitalizeAfterPunctuation=False
-DoubleSpaceToPeriod=False
-DoubleHyphenToEmDash=False
-AutoNonVnRestore=True
-ModernStyle=True
-FreeMarking=True
-DdFreeStyle=True
-FixUinputWithAck=False
-UseLotusIcons=False
-EnableDictionary=False
-EnableCustomKeymap=False
-ShowModeSmooth=True
-ShortcutSmooth=1
-ShowModeUinput=True
-ShortcutUinput=2
-ShowModeSuperSmooth=True
-ShortcutSuperSmooth=a
-ShowModeMinecraft=True
-ShortcutMinecraft=3
-ShowModeSurroundingText=True
-ShortcutSurroundingText=4
-ShowModePreedit=True
-ShortcutPreedit=q
-ShowModeEmoji=True
-ShortcutEmoji=w
-ShowModeOff=True
-ShortcutOff=e
-ShowModeDefault=True
-ShortcutDefault=r
-EnableMacroInOffMode=False
-ModeOrder=Smooth,Uinput,Minecraft,SurroundingText,Preedit,Emoji,Off,SuperSmooth,Default
-TimeFormat=%H:%M
-DateFormat=%d/%m/%Y
-
-[ModeMenuKey]
-0=grave
-EOF
-            chown "$SUDO_USER" "$FCONF_DIR/lotus.conf"
-        fi
-    else warn "Không xác định được user — bỏ qua profile và config Lotus"
+    else warn "Không xác định được user — bỏ qua profile Lotus"
     fi
     ok "Lotus đã sẵn sàng; đăng xuất/đăng nhập lại để áp dụng"
 }

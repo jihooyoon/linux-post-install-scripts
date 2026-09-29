@@ -10,7 +10,7 @@ Scripts for configuring Linux distros after clean install
 - Bật Flatpak
 - Cài bộ gõ fcitx5, mở rộng swap lên tối thiểu 16 GiB, Office tùy chọn (ONLYOFFICE, FreeOffice, LibreOffice) và app cơ bản (browser,...)
 - Cài bộ gõ tiếng Việt Lotus cho fcitx5
-- Setup các extras (chat apps, claude, shortcut chuyển bộ gõ (Alt + Space với Ubuntu/GNOME và Win + Space với các môi trường còn lại), nodejs,...)
+- Setup các extras (chat apps, claude, tối ưu config bộ gõ: shortcut chuyển bộ gõ (Alt + Space với Ubuntu/GNOME và Win + Space với các môi trường còn lại) và gõ tiếng Việt không gạch chân với Lotus, nodejs,...)
 
 **Hiện tại mới chỉ support các distro Ubuntu-based:**
 
