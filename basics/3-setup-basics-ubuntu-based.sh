@@ -209,8 +209,11 @@ BASICS_FAILURES=0
 run_best_effort() {
     basics_label=$1
     basics_function=$2
-    if ( "$basics_function" ); then return 0; fi
-    basics_code=$?
+    if ( "$basics_function" ); then
+        return 0
+    else
+        basics_code=$?
+    fi
     warn "$basics_label thất bại (exit $basics_code) — tiếp tục"
     BASICS_FAILURES=$((BASICS_FAILURES + 1))
 }

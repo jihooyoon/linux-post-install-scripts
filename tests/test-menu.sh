@@ -228,6 +228,8 @@ if (
 else
     fail "Miscellaneous item lỗi vẫn trả thành công"
 fi
+assert_contains "$TMP_TEST/misc-best-effort.out" "(exit 1)" "Miscellaneous báo đúng exit code của Flameshot"
+assert_contains "$TMP_TEST/misc-best-effort.out" "(exit 2)" "Miscellaneous báo đúng exit code của WARP"
 assert_contains "$TMP_TEST/misc-best-effort.out" "called:flameshot" "Miscellaneous tiếp tục từ Flameshot"
 assert_contains "$TMP_TEST/misc-best-effort.out" "called:warp" "Miscellaneous tiếp tục tới WARP"
 
@@ -666,6 +668,7 @@ if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \
 else
     pass "IME core failure vẫn trả non-zero"
 fi
+assert_contains "$TMP_TEST/ime-core-failure.out" "(exit 99)" "Basics báo đúng exit code của item lỗi"
 : > "$TMP_TEST/side-effects.log"
 
 if PATH="$STUB_BIN:$PATH" SETUP_SIDE_EFFECT_LOG="$TMP_TEST/side-effects.log" \

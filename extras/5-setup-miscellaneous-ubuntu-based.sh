@@ -89,8 +89,9 @@ run_best_effort() {
     _function=$2
     if "$_function"; then
         return 0
+    else
+        _code=$?
     fi
-    _code=$?
     warn "$_label thất bại (exit $_code) — tiếp tục"
     return 0
 }
