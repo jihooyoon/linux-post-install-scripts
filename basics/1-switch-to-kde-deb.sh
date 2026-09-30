@@ -1,7 +1,7 @@
 #!/bin/sh
 # @setup-description: Chuyển GNOME sang KDE Plasma
 # @setup-when: always
-# @setup-core-description: Cài KDE Plasma, chọn SDDM và gỡ GNOME
+# @setup-core-description: Cài KDE Plasma, chọn SDDM; gỡ GNOME sau khi vào phiên Plasma
 # 1-switch-to-kde-deb.sh — Ubuntu/Debian: chuyển desktop GNOME sang KDE Plasma
 # Chạy: sudo ./1-switch-to-kde-deb.sh
 
@@ -26,6 +26,10 @@ fi
 
 DEFAULT_DISPLAY_MANAGER_FILE=${SETUP_KDE_DEFAULT_DM_FILE:-/etc/X11/default-display-manager}
 DISPLAY_MANAGER_SERVICE_LINK=${SETUP_KDE_DM_SERVICE_LINK:-/etc/systemd/system/display-manager.service}
+PURGE_GNOME_SCRIPT="$CHILD_DIR/../lib/purge-gnome.sh"
+PURGE_INSTALL_DIR=${PURGE_GNOME_INSTALL_DIR:-/usr/local/lib/linux-post-install-scripts}
+PURGE_UNIT_DIR=${PURGE_GNOME_UNIT_DIR:-/etc/systemd/system}
+PURGE_UNIT_NAME=linux-post-install-purge-gnome
 
 detect_desktop() {
     DESKTOP=${XDG_CURRENT_DESKTOP:-}
@@ -75,6 +79,14 @@ install_and_configure_kde() {
         return 1
     fi
 
+    # display-manager.service đang trỏ DM cũ (vd gdm3) thì enable sddm sẽ lỗi "already exists".
+    # disable chỉ gỡ symlink cho lần boot sau, không dừng GDM đang chạy phiên hiện tại.
+    if [ -e /lib/systemd/system/gdm3.service ] || [ -e /usr/lib/systemd/system/gdm3.service ]; then
+        systemctl disable gdm3.service || warn "Không disable được gdm3.service"
+    fi
+    if [ -L "$DISPLAY_MANAGER_SERVICE_LINK" ] && ! readlink "$DISPLAY_MANAGER_SERVICE_LINK" | grep -q '/sddm\.service$'; then
+        rm -f "$DISPLAY_MANAGER_SERVICE_LINK"
+    fi
     if ! mkdir -p "$(dirname -- "$DEFAULT_DISPLAY_MANAGER_FILE")" || \
        ! printf '%s\n' /usr/bin/sddm > "$DEFAULT_DISPLAY_MANAGER_FILE" || \
        ! systemctl enable sddm.service || \
@@ -95,28 +107,74 @@ mark_kde_switch_succeeded() {
     ok "KDE Plasma đã sẵn sàng; SDDM sẽ là display manager sau reboot"
 }
 
-purge_gnome() {
-    info "Gỡ GNOME và các gói Ubuntu Desktop..."
-    if apt-get purge -y \
-        'gnome*' 'gdm3' 'ubuntu-desktop*' 'ubuntu-session*' 'ubuntu-settings*' \
-        nautilus evince eog gedit gnome-calculator gnome-calendar gnome-characters \
-        gnome-clocks gnome-contacts gnome-font-viewer gnome-disk-utility \
-        gnome-system-monitor gnome-screenshot; then
-        ok "Đã purge các gói GNOME"
-    else
-        warn "Purge GNOME gặp lỗi — tiếp tục dọn dependency còn lại"
+# Plasma/GNOME theo process đang chạy thật — không dùng marker, vì marker có từ lúc
+# còn ở phiên GNOME (trước reboot)
+in_plasma_session() {
+    pgrep -x plasmashell >/dev/null 2>&1 && ! pgrep -x gnome-shell >/dev/null 2>&1
+}
+
+gnome_installed() {
+    dpkg-query -W -f='${Status}\n' gdm3 gnome-shell 2>/dev/null | grep -q 'install ok installed'
+}
+
+# Purge ngay trong phiên GNOME gần như chắc chắn làm chết session → cài timer, purge khi vào Plasma
+install_deferred_purge() {
+    if ! mkdir -p "$PURGE_INSTALL_DIR" "$PURGE_UNIT_DIR" || \
+       ! cp "$PURGE_GNOME_SCRIPT" "$PURGE_INSTALL_DIR/purge-gnome.sh" || \
+       ! chmod 755 "$PURGE_INSTALL_DIR/purge-gnome.sh"; then
+        warn "Không cài được script purge GNOME — sau khi vào Plasma, chạy lại Basic chuyển KDE để gỡ GNOME"
+        return 1
     fi
-    if apt-get autoremove -y --purge; then
-        ok "Đã dọn dependency không còn dùng"
-    else
-        warn "autoremove gặp lỗi"
+    cat > "$PURGE_UNIT_DIR/$PURGE_UNIT_NAME.service" <<EOF
+[Unit]
+Description=Gỡ GNOME sau khi chuyển sang KDE Plasma (linux-post-install-scripts)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh $PURGE_INSTALL_DIR/purge-gnome.sh check
+EOF
+    cat > "$PURGE_UNIT_DIR/$PURGE_UNIT_NAME.timer" <<EOF
+[Unit]
+Description=Kiểm tra phiên Plasma để gỡ GNOME (linux-post-install-scripts)
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
+EOF
+    # Chỉ enable, không start: timer chạy từ lần boot sau, không đụng phiên GNOME hiện tại
+    if ! systemctl daemon-reload || ! systemctl enable "$PURGE_UNIT_NAME.timer"; then
+        warn "Không bật được timer purge GNOME — sau khi vào Plasma, chạy lại Basic chuyển KDE để gỡ GNOME"
+        return 1
     fi
+    ok "Đã hẹn gỡ GNOME: tự chạy khi phát hiện phiên Plasma sau reboot"
 }
 
 main() {
     detect_desktop
-    if setup_is_kde_desktop "$DESKTOP"; then
-        setup_child_skip "desktop hiện tại đã là KDE/Plasma"
+    # Theo desktop đang chạy thật; marker không dùng ở đây vì nó có từ lúc còn ở phiên GNOME
+    case "$DESKTOP" in
+        *KDE*|*Plasma*)
+            if gnome_installed && in_plasma_session; then
+                info "Đang ở phiên Plasma nhưng GNOME vẫn còn — gỡ GNOME ngay"
+                if sh "$PURGE_GNOME_SCRIPT" now; then
+                    ok "Đã gỡ GNOME"
+                else
+                    warn "Gỡ GNOME chưa thành công — xem log /var/log/linux-post-install-scripts/purge-gnome.log; KDE vẫn dùng bình thường"
+                fi
+                return 0
+            fi
+            setup_child_skip "desktop hiện tại đã là KDE/Plasma"
+            ;;
+    esac
+    # Đã chuyển KDE ở lần chạy trước (marker) nhưng vẫn đăng nhập GNOME: KDE/SDDM đã sẵn sàng,
+    # timer purge đã hẹn — chỉ cần chọn Plasma ở màn hình đăng nhập
+    if setup_kde_switch_succeeded; then
+        warn "Đã chuyển sang KDE ở lần chạy trước nhưng đang dùng GNOME — đăng xuất/reboot và chọn Plasma ở màn hình đăng nhập SDDM"
+        setup_child_skip "đã cấu hình KDE Plasma và SDDM từ lần chạy trước"
     fi
 
     info "Desktop hiện tại: ${DESKTOP:-không nhận diện được}; bắt đầu chuyển sang KDE Plasma"
@@ -128,8 +186,8 @@ main() {
         return 1
     fi
 
-    purge_gnome
-    printf '\n\033[1;32mHoàn tất!\033[0m Hãy reboot để đăng nhập KDE Plasma qua SDDM.\n'
+    install_deferred_purge || true
+    printf '\n\033[1;32mHoàn tất!\033[0m Hãy reboot, rồi \033[1mchọn Plasma ở màn hình đăng nhập SDDM\033[0m; GNOME sẽ tự được gỡ khi vào phiên Plasma.\n'
 }
 
 main

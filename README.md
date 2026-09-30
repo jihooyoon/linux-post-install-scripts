@@ -6,6 +6,7 @@ Scripts for configuring Linux distros after clean install
 
 **Những việc scripts sẽ làm:**
 
+- Chuyển GNOME sang KDE Plasma (tùy chọn): cài KDE + SDDM; sau khi reboot và **chọn Plasma ở màn hình đăng nhập**, GNOME tự được gỡ (nếu vẫn vào GNOME sẽ có thông báo nhắc). Log: `/var/log/linux-post-install-scripts/purge-gnome.log`; gỡ lỗi thì chạy lại Basic chuyển KDE trong phiên Plasma
 - De-Bullshit Ubuntu: Mục tiêu gỡ hoàn toàn snap, tránh bloat
 - Bật Flatpak
 - Cài bộ gõ fcitx5, mở rộng swap lên tối thiểu 16 GiB, Office tùy chọn (ONLYOFFICE, FreeOffice, LibreOffice) và app cơ bản (browser,...)

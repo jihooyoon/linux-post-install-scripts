@@ -138,8 +138,13 @@ assert_contains "$SWAP_FILE" 'NEW_SWAPFILE=/swapfile-extra' "Swap mới dùng đ
 assert_contains "$SWAP_FILE" 'main || warn' "Lỗi swap runtime không làm child thất bại"
 assert_contains "$KDE_FILE" 'DEBIAN_FRONTEND=noninteractive apt-get install -y kde-plasma-desktop sddm' "KDE cài noninteractive với SDDM"
 assert_contains "$KDE_FILE" 'sddm shared/default-x-display-manager select sddm' "KDE preseed SDDM"
-assert_contains "$KDE_FILE" "'gnome*' 'gdm3' 'ubuntu-desktop*'" "KDE purge các metapackage GNOME"
-assert_contains "$KDE_FILE" 'apt-get autoremove -y --purge' "KDE dọn dependency GNOME"
+PURGE_GNOME_FILE="$ROOT/lib/purge-gnome.sh"
+assert_contains "$PURGE_GNOME_FILE" 'GNOME_PACKAGES="gnome* gdm3 ubuntu-desktop*' "Purge GNOME gỡ các metapackage GNOME"
+assert_contains "$PURGE_GNOME_FILE" 'apt-get purge -y --autoremove $GNOME_PACKAGES' "Purge GNOME dọn dependency cùng lúc"
+assert_contains "$PURGE_GNOME_FILE" 'apt-get -s purge --autoremove $GNOME_PACKAGES' "Purge GNOME mô phỏng trước khi gỡ"
+assert_not_contains "$KDE_FILE" 'apt-get purge' "KDE không purge GNOME ngay trong phiên hiện tại"
+assert_contains "$KDE_FILE" 'systemctl disable gdm3.service' "KDE disable gdm3 trước khi enable sddm"
+assert_contains "$KDE_FILE" 'install_deferred_purge' "KDE hẹn purge GNOME khi vào phiên Plasma"
 assert_contains "$KDE_FILE" 'setup_child_skip "desktop hiện tại đã là KDE/Plasma"' "KDE skip khi đã dùng KDE"
 assert_contains "$KDE_FILE" 'mark_kde_switch_succeeded' "KDE ghi marker sau khi KDE và SDDM sẵn sàng"
 assert_contains "$KDE_FILE" 'return 1' "Lỗi chuyển KDE trước marker làm child thất bại"
@@ -180,6 +185,77 @@ if PATH="$KDE_STUB_BIN:$PATH" XDG_CURRENT_DESKTOP=KDE \
     pass "KDE hiện tại skip mà không gọi apt"
 else
     fail "KDE hiện tại skip mà không gọi apt"
+fi
+
+# --- purge-gnome.sh với stub: phiên GNOME / Plasma / mô phỏng đụng gói KDE ---
+PG_BIN="$TMP_TEST/pg-stubs"
+PG_ROOT="$TMP_TEST/pg-root"
+mkdir -p "$PG_BIN"
+cat > "$PG_BIN/pgrep" <<'EOF'
+#!/bin/sh
+for a in "$@"; do last=$a; done
+case " $PG_RUNNING " in *" $last "*) echo 4242; exit 0 ;; esac
+exit 1
+EOF
+printf '#!/bin/sh\necho tester\n' > "$PG_BIN/ps"
+printf '#!/bin/sh\necho 1000\n' > "$PG_BIN/id"
+printf '#!/bin/sh\nexit 1\n' > "$PG_BIN/fuser"
+printf '#!/bin/sh\necho "install ok installed"\n' > "$PG_BIN/dpkg-query"
+printf '#!/bin/sh\necho "systemctl $*" >> "$PG_CALLS"\n' > "$PG_BIN/systemctl"
+printf '#!/bin/sh\nshift 3\necho "notify $*" >> "$PG_CALLS"\n' > "$PG_BIN/runuser"
+printf '#!/bin/sh\nexit 0\n' > "$PG_BIN/notify-send"
+cat > "$PG_BIN/apt-get" <<'EOF'
+#!/bin/sh
+echo "apt-get $*" >> "$PG_CALLS"
+if [ "$1" = -s ]; then echo "Purg gnome-shell [46]"; echo "Remv gdm3 [46]"; [ -z "$PG_SIM_EXTRA" ] || echo "Remv $PG_SIM_EXTRA [6]"; fi
+exit 0
+EOF
+chmod +x "$PG_BIN"/*
+run_purge_gnome() {
+    rm -rf "$PG_ROOT"; mkdir -p "$PG_ROOT/lib" "$PG_ROOT/units"
+    : > "$PG_ROOT/lib/purge-gnome.sh"; : > "$PG_ROOT/units/linux-post-install-purge-gnome.timer"
+    : > "$TMP_TEST/pg-calls.log"
+    PATH="$PG_BIN:$PATH" PG_CALLS="$TMP_TEST/pg-calls.log" PG_RUNNING="$1" PG_SIM_EXTRA="${2:-}" \
+        PURGE_GNOME_INSTALL_DIR="$PG_ROOT/lib" PURGE_GNOME_UNIT_DIR="$PG_ROOT/units" \
+        PURGE_GNOME_LOG="$PG_ROOT/purge.log" PURGE_GNOME_STATE_DIR="$PG_ROOT/state" \
+        sh "$PURGE_GNOME_FILE" check > "$TMP_TEST/pg.out" 2>&1
+}
+
+run_purge_gnome "gnome-shell"
+if grep -q 'Chưa hoàn tất chuyển sang KDE' "$TMP_TEST/pg-calls.log" && \
+   ! grep -q '^apt-get' "$TMP_TEST/pg-calls.log" && \
+   [ -f "$PG_ROOT/units/linux-post-install-purge-gnome.timer" ]; then
+    pass "Purge GNOME: phiên GNOME chỉ nhắc chọn Plasma, không purge, giữ timer"
+else
+    fail "Purge GNOME: phiên GNOME chỉ nhắc chọn Plasma, không purge, giữ timer"
+fi
+
+run_purge_gnome "plasmashell"
+if grep -q '^apt-get -s purge --autoremove gnome\* gdm3' "$TMP_TEST/pg-calls.log" && \
+   grep -q '^apt-get purge -y --autoremove gnome\* gdm3' "$TMP_TEST/pg-calls.log" && \
+   grep -q 'Đã gỡ GNOME' "$TMP_TEST/pg-calls.log" && \
+   [ ! -f "$PG_ROOT/units/linux-post-install-purge-gnome.timer" ] && \
+   [ ! -f "$PG_ROOT/lib/purge-gnome.sh" ]; then
+    pass "Purge GNOME: phiên Plasma mô phỏng, purge rồi tự gỡ timer"
+else
+    fail "Purge GNOME: phiên Plasma mô phỏng, purge rồi tự gỡ timer"
+fi
+
+run_purge_gnome "plasmashell" "kde-plasma-desktop"
+if ! grep -q '^apt-get purge' "$TMP_TEST/pg-calls.log" && \
+   grep -q 'Gỡ GNOME thất bại' "$TMP_TEST/pg-calls.log" && \
+   grep -q 'kde-plasma-desktop' "$PG_ROOT/purge.log" && \
+   [ ! -f "$PG_ROOT/units/linux-post-install-purge-gnome.timer" ]; then
+    pass "Purge GNOME: mô phỏng đụng gói KDE thì không purge, báo lỗi, gỡ timer"
+else
+    fail "Purge GNOME: mô phỏng đụng gói KDE thì không purge, báo lỗi, gỡ timer"
+fi
+
+run_purge_gnome ""
+if [ ! -s "$TMP_TEST/pg-calls.log" ] && [ -f "$PG_ROOT/units/linux-post-install-purge-gnome.timer" ]; then
+    pass "Purge GNOME: chưa có phiên đồ hoạ thì không làm gì"
+else
+    fail "Purge GNOME: chưa có phiên đồ hoạ thì không làm gì"
 fi
 
 if sh "$DEBLOAT_FILE" --help > "$TMP_TEST/debloat-help.out" 2>&1 && \
