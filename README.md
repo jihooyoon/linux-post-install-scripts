@@ -6,12 +6,12 @@ Scripts for configuring Linux distros after clean install
 
 **Những việc scripts sẽ làm:**
 
-- Chuyển GNOME sang KDE Plasma (tùy chọn): cài KDE + SDDM; sau khi reboot và **chọn Plasma ở màn hình đăng nhập**, GNOME tự được gỡ (nếu vẫn vào GNOME sẽ có thông báo nhắc). Log: `/var/log/linux-post-install-scripts/purge-gnome.log`; gỡ lỗi thì chạy lại Basic chuyển KDE trong phiên Plasma
 - De-Bullshit Ubuntu: Mục tiêu gỡ hoàn toàn snap, tránh bloat
 - Bật Flatpak
 - Cài bộ gõ fcitx5, mở rộng swap lên tối thiểu 16 GiB, Office tùy chọn (ONLYOFFICE, FreeOffice, LibreOffice) và app cơ bản (browser,...)
 - Cài bộ gõ tiếng Việt Lotus cho fcitx5
 - Setup các extras (chat apps, claude, tối ưu config bộ gõ: shortcut chuyển bộ gõ (Alt + Space với Ubuntu/GNOME và Win + Space với các môi trường còn lại) và gõ tiếng Việt không gạch chân với Lotus, nodejs,...)
+- Tùy chọn riêng, tối ưu UX: chuyển đổi GNOME sang KDE Plasma
 
 **Hiện tại mới chỉ support các distro Ubuntu-based:**
 
@@ -97,3 +97,9 @@ curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-script
 
 - **KIMPanel (Hiển thị bộ gõ trên status bar)** - Highly recommend để bộ gõ tiếng Việt có trải nghiệm tốt:
   [https://extensions.gnome.org/extension/261/kimpanel](https://extensions.gnome.org/extension/261/kimpanel)
+
+### Additional: Nếu chuyển GNOME sang KDE
+
+- Sau khi reboot, **chọn Plasma ở màn hình đăng nhập SDDM**; GNOME sẽ tự được gỡ khi vào phiên Plasma. Nếu vẫn vào GNOME, sẽ có thông báo nhắc chọn Plasma
+- Log: `/var/log/linux-post-install-scripts/purge-gnome.log`
+- Nếu lỗi trong quá trình gỡ GNOME thì chạy lại Basic chuyển KDE trong phiên Plasma
