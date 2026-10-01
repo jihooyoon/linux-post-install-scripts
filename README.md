@@ -32,7 +32,7 @@ command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install 
 ```
 
 *Pack BS:*
-Cơ bản, phù hợp cho BS, chỉ bao gồm bộ gõ, OnlyOffice, Chrome, Mattermost, và Claude Desktop
+Cơ bản, phù hợp cho BS, chỉ bao gồm bộ gõ, mở rộng swap, OnlyOffice, Chrome, Mattermost, và Claude Desktop
 ```bash
 command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y -q curl); curl -fsSL https://raw.githubusercontent.com/jihooyoon/linux-post-install-scripts/main/remote-setup.sh | sh -s -- --pack-bs --keep-snap
 ```
