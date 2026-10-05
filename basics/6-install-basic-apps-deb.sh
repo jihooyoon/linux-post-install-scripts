@@ -179,7 +179,7 @@ install_chromium_from_xtradeb() {
     XTRADEB_CANDIDATE=$(LC_ALL=C apt-cache policy chromium 2>/dev/null | awk '/^ +Candidate:/ { print $2; exit }')
     if [ -z "$XTRADEB_CANDIDATE" ] || [ "$XTRADEB_CANDIDATE" = "(none)" ]; then
         [ ! -f "$XTRADEB_SOURCES" ] || { remove_xtradeb_source; apt-get update >/dev/null 2>&1 || true; }
-        warn "PPA xtradeb/apps chưa có chromium cho $XTRADEB_SUITE — đã gỡ PPA vừa thêm, bỏ qua Chromium"
+        warn "Không lấy được chromium từ PPA xtradeb/apps cho $XTRADEB_SUITE (không tải được PPA hoặc PPA chưa có bản cho codename này) — đã gỡ PPA vừa thêm, bỏ qua Chromium"
         return 1
     fi
     apt-get install -y chromium || return $?

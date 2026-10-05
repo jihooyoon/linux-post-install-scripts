@@ -524,7 +524,7 @@ else
     fail "Chromium: apt update lỗi thì gỡ PPA xtradeb vừa thêm"
 fi
 CHR_PPA_NO_CHROMIUM=1 run_chromium_case ubuntu
-if grep -q 'chưa có chromium cho' "$TMP_TEST/chr.out" && [ ! -e "$CHR_ROOT/xtradeb-apps.sources" ] && \
+if grep -q 'Không lấy được chromium từ PPA xtradeb' "$TMP_TEST/chr.out" && [ ! -e "$CHR_ROOT/xtradeb-apps.sources" ] && \
    [ ! -e "$CHR_ROOT/xtradeb-apps-chromium" ] && ! grep -q '^apt-get install' "$TMP_TEST/chr-calls.log"; then
     pass "Chromium: PPA chưa build chromium cho codename thì gỡ PPA, không cài"
 else
