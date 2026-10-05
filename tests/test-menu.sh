@@ -417,7 +417,7 @@ assert_not_contains "$TMP_TEST/basic-run-selected-best-effort.fn" "_i=" "Basic A
 assert_contains "$TMP_TEST/basic-run-selected-best-effort.fn" "_selected_item_index=1" "Basic Apps runner dùng iterator riêng"
 
 # --- Chromium: chỉ xét bản Candidate, không bị bản snap cũ còn sót trong repo đánh lừa ---
-awk '/^install_chromium\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/install-chromium.fn"
+awk '/^install_chromium\(\)/,/^}/; /^install_chromium_from_xtradeb\(\)/,/^}/; /^remove_xtradeb_source\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/install-chromium.fn"
 CHR_BIN="$TMP_TEST/chromium-stubs"
 mkdir -p "$CHR_BIN"
 cat > "$CHR_BIN/apt-cache" <<'EOF'
@@ -429,25 +429,57 @@ case "$CHR_CASE:$1:$2" in
     tuxedo:policy:chromium-browser) printf 'chromium-browser:\n  Installed: (none)\n  Candidate: 2:153.0-1tux1\n' ;;
     tuxedo:show:chromium=2:153.0-1tux1) printf 'Package: chromium\nVersion: 2:153.0-1tux1\nDepends: libgtk-3-0, libnss3\n' ;;
     tuxedo:show:chromium) printf 'Package: chromium\nVersion: 2:153.0-1tux1\nDepends: libgtk-3-0\n\nPackage: chromium\nVersion: 2:131.0-1tux1-snap\nPre-Depends: debconf, snapd\n' ;;
-    ubuntu:policy:chromium) printf 'chromium:\n  Installed: (none)\n  Candidate: (none)\n' ;;
+    ubuntu:policy:chromium)
+        if [ -f "$CHR_ROOT/ppa-updated" ]; then printf 'chromium:\n  Installed: (none)\n  Candidate: 154.0-1xtradeb1\n'
+        else printf 'chromium:\n  Installed: (none)\n  Candidate: (none)\n'; fi ;;
     ubuntu:policy:chromium-browser) printf 'chromium-browser:\n  Installed: (none)\n  Candidate: 2:1snap1-0ubuntu2\n' ;;
     ubuntu:show:chromium-browser=2:1snap1-0ubuntu2) printf 'Package: chromium-browser\nVersion: 2:1snap1-0ubuntu2\nPre-Depends: debconf, snapd\n' ;;
 esac
 exit 0
 EOF
-printf '#!/bin/sh\necho "apt-get $*" >> "$CHR_CALLS"\n' > "$CHR_BIN/apt-get"
+cat > "$CHR_BIN/apt-get" <<'EOF'
+#!/bin/sh
+echo "apt-get $*" >> "$CHR_CALLS"
+[ "$1" = update ] && [ "${CHR_UPDATE_FAIL:-0}" = 1 ] && exit 100
+# Sau khi có source xtradeb và update: PPA có chromium (trừ khi giả lập codename chưa được build)
+[ "$1" = update ] && [ -f "$CHR_ROOT/xtradeb-apps.sources" ] && [ "${CHR_PPA_NO_CHROMIUM:-0}" != 1 ] && : > "$CHR_ROOT/ppa-updated"
+exit 0
+EOF
+cat > "$CHR_BIN/curl" <<'EOF'
+#!/bin/sh
+for a in "$@"; do [ "$prev" = -o ] && out=$a; prev=$a; done
+echo "curl $*" >> "$CHR_CALLS"; echo key > "$out"
+EOF
+cat > "$CHR_BIN/gpg" <<'EOF'
+#!/bin/sh
+case "$*" in
+    *--show-keys*) echo "fpr:::::::::${CHR_KEY_FPR:-5301FA4FD93244FBC6F6149982BB6851C64F6880}:" ;;
+    *--dearmor*) for a in "$@"; do [ "$prev" = -o ] && out=$a; prev=$a; done; cat > "$out" ;;
+esac
+EOF
+printf '#!/bin/sh\necho amd64\n' > "$CHR_BIN/dpkg"
 chmod +x "$CHR_BIN"/*
+CHR_ROOT="$TMP_TEST/chromium-root"
 run_chromium_case() {
     : > "$TMP_TEST/chr-calls.log"
+    rm -rf "$CHR_ROOT"; mkdir -p "$CHR_ROOT"
+    [ "${CHR_OLD_MINT:-0}" != 1 ] || \
+        printf '# Linux Mint repo — chỉ lấy chromium, không ảnh hưởng gì đến hệ thống\n' > "$CHR_ROOT/linuxmint.sources"
     (
         PATH="$CHR_BIN:$PATH"
         CHR_CASE=$1
         CHR_CALLS="$TMP_TEST/chr-calls.log"
-        export CHR_CASE CHR_CALLS
+        export CHR_CASE CHR_CALLS CHR_ROOT
         info() { printf 'info:%s\n' "$*"; }
         ok() { printf 'ok:%s\n' "$*"; }
         warn() { printf 'warn:%s\n' "$*"; }
-        ensure_curl() { return 1; }
+        ensure_curl() { return 0; }
+        XTRADEB_URI=https://ppa.launchpadcontent.net/xtradeb/apps/ubuntu
+        XTRADEB_FINGERPRINT=5301FA4FD93244FBC6F6149982BB6851C64F6880
+        XTRADEB_KEYRING="$CHR_ROOT/xtradeb-apps.gpg"
+        XTRADEB_SOURCES="$CHR_ROOT/xtradeb-apps.sources"
+        XTRADEB_PIN="$CHR_ROOT/xtradeb-apps-chromium"
+        OLD_MINT_SOURCES="$CHR_ROOT/linuxmint.sources"
         . "$TMP_TEST/install-chromium.fn"
         install_chromium
     ) > "$TMP_TEST/chr.out" 2>&1
@@ -460,11 +492,49 @@ else
     fail "Chromium: Candidate .deb thật thì cài thẳng, không bị bản snap cũ trong repo đánh lừa"
 fi
 run_chromium_case ubuntu
-if grep -q 'thêm Linux Mint repo' "$TMP_TEST/chr.out" && \
-   ! grep -q '^apt-get install' "$TMP_TEST/chr-calls.log"; then
-    pass "Chromium: chỉ có bản snap thì chuyển sang nguồn thay thế"
+UBUNTU_SUITE=$(grep -oP '^UBUNTU_CODENAME=\K.*' /etc/os-release 2>/dev/null || grep -oP '^VERSION_CODENAME=\K.*' /etc/os-release)
+if grep -q 'thêm PPA xtradeb/apps' "$TMP_TEST/chr.out" && \
+   grep -q '^apt-get install -y chromium$' "$TMP_TEST/chr-calls.log" && \
+   grep -qx 'URIs: https://ppa.launchpadcontent.net/xtradeb/apps/ubuntu' "$CHR_ROOT/xtradeb-apps.sources" && \
+   grep -qx "Suites: $UBUNTU_SUITE" "$CHR_ROOT/xtradeb-apps.sources" && \
+   grep -qx "Signed-By: $CHR_ROOT/xtradeb-apps.gpg" "$CHR_ROOT/xtradeb-apps.sources" && \
+   [ -s "$CHR_ROOT/xtradeb-apps.gpg" ] && \
+   ! grep -qi 'linuxmint' "$TMP_TEST/chr-calls.log"; then
+    pass "Chromium: chỉ có bản snap thì thêm PPA xtradeb/apps rồi cài chromium"
 else
-    fail "Chromium: chỉ có bản snap thì chuyển sang nguồn thay thế"
+    fail "Chromium: chỉ có bản snap thì thêm PPA xtradeb/apps rồi cài chromium"
+fi
+if [ "$(tr '\n' '|' < "$CHR_ROOT/xtradeb-apps-chromium")" = 'Package: *|Pin: release o=LP-PPA-xtradeb-apps|Pin-Priority: -1||Package: chromium*|Pin: release o=LP-PPA-xtradeb-apps|Pin-Priority: 500|' ]; then
+    pass "Chromium: pin chặn mọi gói xtradeb trừ chromium*"
+else
+    fail "Chromium: pin chặn mọi gói xtradeb trừ chromium*"
+fi
+CHR_KEY_FPR=0000000000000000000000000000000000000000 run_chromium_case ubuntu
+if grep -q 'không khớp fingerprint' "$TMP_TEST/chr.out" && [ ! -e "$CHR_ROOT/xtradeb-apps.sources" ] && \
+   ! grep -q '^apt-get install' "$TMP_TEST/chr-calls.log"; then
+    pass "Chromium: khoá xtradeb sai fingerprint thì dừng, không thêm source"
+else
+    fail "Chromium: khoá xtradeb sai fingerprint thì dừng, không thêm source"
+fi
+CHR_UPDATE_FAIL=1 run_chromium_case ubuntu
+if [ ! -e "$CHR_ROOT/xtradeb-apps.sources" ] && [ ! -e "$CHR_ROOT/xtradeb-apps-chromium" ] && \
+   ! grep -q '^apt-get install' "$TMP_TEST/chr-calls.log"; then
+    pass "Chromium: apt update lỗi thì gỡ PPA xtradeb vừa thêm"
+else
+    fail "Chromium: apt update lỗi thì gỡ PPA xtradeb vừa thêm"
+fi
+CHR_PPA_NO_CHROMIUM=1 run_chromium_case ubuntu
+if grep -q 'chưa có chromium cho' "$TMP_TEST/chr.out" && [ ! -e "$CHR_ROOT/xtradeb-apps.sources" ] && \
+   [ ! -e "$CHR_ROOT/xtradeb-apps-chromium" ] && ! grep -q '^apt-get install' "$TMP_TEST/chr-calls.log"; then
+    pass "Chromium: PPA chưa build chromium cho codename thì gỡ PPA, không cài"
+else
+    fail "Chromium: PPA chưa build chromium cho codename thì gỡ PPA, không cài"
+fi
+CHR_OLD_MINT=1 run_chromium_case ubuntu
+if [ ! -e "$CHR_ROOT/linuxmint.sources" ] && grep -q 'Đã gỡ source Linux Mint' "$TMP_TEST/chr.out"; then
+    pass "Chromium: gỡ source Linux Mint do bản cũ của script thêm"
+else
+    fail "Chromium: gỡ source Linux Mint do bản cũ của script thêm"
 fi
 
 if (

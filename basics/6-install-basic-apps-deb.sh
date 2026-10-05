@@ -103,6 +103,88 @@ install_chrome() {
     ok "Đã cài Google Chrome"
 }
 
+# PPA xtradeb/apps (Launchpad) — có chromium .deb cho Ubuntu; pin để chỉ lấy chromium*
+XTRADEB_URI=https://ppa.launchpadcontent.net/xtradeb/apps/ubuntu
+XTRADEB_FINGERPRINT=5301FA4FD93244FBC6F6149982BB6851C64F6880
+XTRADEB_KEYRING=/etc/apt/keyrings/xtradeb-apps.gpg
+XTRADEB_SOURCES=/etc/apt/sources.list.d/xtradeb-apps.sources
+XTRADEB_PIN=/etc/apt/preferences.d/xtradeb-apps-chromium
+# Source Linux Mint do bản cũ của script thêm để lấy chromium
+OLD_MINT_SOURCES=/etc/apt/sources.list.d/linuxmint.sources
+
+remove_xtradeb_source() {
+    rm -f "$XTRADEB_SOURCES" "$XTRADEB_PIN" "$XTRADEB_KEYRING"
+}
+
+install_chromium_from_xtradeb() {
+    # Bản cũ của script lấy chromium từ Linux Mint — gỡ source đó nếu đúng là file script đã tạo
+    if [ -f "$OLD_MINT_SOURCES" ] && grep -q 'chỉ lấy chromium' "$OLD_MINT_SOURCES"; then
+        rm -f "$OLD_MINT_SOURCES" /etc/apt/keyrings/linuxmint-keyring.gpg
+        info "Đã gỡ source Linux Mint (chromium) do bản cũ của script thêm"
+    fi
+    # Distro dẫn xuất (Mint, Tuxedo...) có VERSION_CODENAME riêng — PPA cần codename Ubuntu gốc
+    XTRADEB_SUITE=$(grep -oP '^UBUNTU_CODENAME=\K.*' /etc/os-release 2>/dev/null || true)
+    [ -n "$XTRADEB_SUITE" ] || XTRADEB_SUITE=$(grep -oP '^VERSION_CODENAME=\K.*' /etc/os-release 2>/dev/null || true)
+    if [ -z "$XTRADEB_SUITE" ]; then
+        warn "Không xác định được codename Ubuntu — bỏ qua Chromium"
+        return 1
+    fi
+    if grep -rqsE 'ppa\.launchpadcontent\.net/xtradeb/apps|ppa\.launchpad\.net/xtradeb/apps' \
+        /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null && [ ! -f "$XTRADEB_SOURCES" ]; then
+        warn "Đã có PPA xtradeb/apps (thêm từ trước) — dùng luôn, không thêm source và pin mới"
+    else
+        ensure_curl || return $?
+        command -v gpg >/dev/null 2>&1 || apt-get install -y gpg || return $?
+        mkdir -p /etc/apt/keyrings /etc/apt/preferences.d || return $?
+        XTRADEB_ASC=$(mktemp) || return 1
+        if ! curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$XTRADEB_FINGERPRINT" -o "$XTRADEB_ASC"; then
+            rm -f "$XTRADEB_ASC"
+            warn "Không tải được khoá ký của PPA xtradeb/apps"
+            return 1
+        fi
+        # Chỉ dùng khoá nếu đúng fingerprint đã biết
+        if ! gpg --show-keys --with-colons "$XTRADEB_ASC" 2>/dev/null | grep -q "^fpr:*$XTRADEB_FINGERPRINT:"; then
+            rm -f "$XTRADEB_ASC"
+            warn "Khoá tải về không khớp fingerprint $XTRADEB_FINGERPRINT — dừng"
+            return 1
+        fi
+        gpg --yes --dearmor -o "$XTRADEB_KEYRING" < "$XTRADEB_ASC" || { rm -f "$XTRADEB_ASC"; return 1; }
+        rm -f "$XTRADEB_ASC"
+        printf '%s\n' \
+            '# PPA xtradeb/apps — chỉ lấy chromium (xem pin trong /etc/apt/preferences.d/xtradeb-apps-chromium)' \
+            'Types: deb' \
+            "URIs: $XTRADEB_URI" \
+            "Suites: $XTRADEB_SUITE" \
+            'Components: main' \
+            "Architectures: $(dpkg --print-architecture)" \
+            "Signed-By: $XTRADEB_KEYRING" \
+            > "$XTRADEB_SOURCES" || return 1
+        # Chặn mọi gói khác của PPA (-1), chỉ cho phép chromium và các gói đi kèm (chromium-common, -sandbox, -l10n...)
+        printf '%s\n' \
+            'Package: *' \
+            'Pin: release o=LP-PPA-xtradeb-apps' \
+            'Pin-Priority: -1' \
+            '' \
+            'Package: chromium*' \
+            'Pin: release o=LP-PPA-xtradeb-apps' \
+            'Pin-Priority: 500' \
+            > "$XTRADEB_PIN" || return 1
+    fi
+    if ! apt-get update; then
+        # Vd PPA chưa có bản cho codename này — gỡ source vừa thêm để apt update về sau không lỗi
+        [ ! -f "$XTRADEB_SOURCES" ] || { remove_xtradeb_source; warn "apt update lỗi — đã gỡ PPA xtradeb/apps vừa thêm"; }
+        return 1
+    fi
+    # PPA có repo cho codename nhưng chưa build chromium (vd focal) → không có Candidate
+    XTRADEB_CANDIDATE=$(LC_ALL=C apt-cache policy chromium 2>/dev/null | awk '/^ +Candidate:/ { print $2; exit }')
+    if [ -z "$XTRADEB_CANDIDATE" ] || [ "$XTRADEB_CANDIDATE" = "(none)" ]; then
+        [ ! -f "$XTRADEB_SOURCES" ] || { remove_xtradeb_source; apt-get update >/dev/null 2>&1 || true; }
+        warn "PPA xtradeb/apps chưa có chromium cho $XTRADEB_SUITE — đã gỡ PPA vừa thêm, bỏ qua Chromium"
+        return 1
+    fi
+    apt-get install -y chromium || return $?
+}
+
 # --- Mục 2: Cài Chromium (.deb thật) ---
 install_chromium() {
     info "Cài Chromium..."
@@ -125,58 +207,9 @@ install_chromium() {
         info "Repo hiện tại có $CHROMIUM_PKG (.deb thật) — cài trực tiếp"
         apt-get install -y "$CHROMIUM_PKG" || return $?
     else
-        # Fallback: thêm Linux Mint repo (chỉ lấy chromium)
-        warn "Repo không có chromium .deb — thêm Linux Mint repo (chỉ chromium)"
-        ensure_curl || return $?
-        UBUNTU_CODENAME=$(grep -oP 'VERSION_CODENAME=\K.*' /etc/os-release 2>/dev/null || lsb_release -sc 2>/dev/null || true)
-        case "$UBUNTU_CODENAME" in
-            jammy)  MINT_SUITE="virginia"  ;;  # 22.04 → Mint 21.x
-            noble)  MINT_SUITE="wilma"     ;;  # 24.04 → Mint 22.x
-            *)      MINT_SUITE="zena"      ;;  # 26.04+ → Mint 23
-        esac
-        MINT_REPO_PATTERN='https?://packages\.linuxmint\.com/?([[:space:]]|$)'
-        MINT_REPO_FILES=$(grep -rslE "$MINT_REPO_PATTERN" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null || true)
-        if [ -n "$MINT_REPO_FILES" ]; then
-            warn "Đã có source Linux Mint; giữ nguyên và không thêm source mới: $(printf '%s' "$MINT_REPO_FILES" | tr '\n' ' ')"
-        else
-            # Cài linuxmint-keyring
-            MINT_KEYRING_URL="http://packages.linuxmint.com/pool/main/l/linuxmint-keyring"
-            MINT_KEYRING_INDEX=$(curl -fsSL "$MINT_KEYRING_URL/" 2>/dev/null) || return $?
-            KEYRING_DEB=$(printf '%s\n' "$MINT_KEYRING_INDEX" | \
-                grep -oP 'linuxmint-keyring_[^"]+_all\.deb' | sort -V | tail -1)
-            if [ -z "$KEYRING_DEB" ]; then
-                warn "Không tìm thấy linuxmint-keyring — kiểm tra kết nối mạng"
-                return 1
-            fi
-            TMP_DEB=$(mktemp /tmp/linuxmint-keyring.XXXXXX.deb) || return 1
-            if ! curl -fsSL "$MINT_KEYRING_URL/$KEYRING_DEB" -o "$TMP_DEB"; then
-                rm -f "$TMP_DEB"
-                return 1
-            fi
-            if ! dpkg -i "$TMP_DEB"; then
-                rm -f "$TMP_DEB"
-                return 1
-            fi
-            rm -f "$TMP_DEB"
-            mkdir -p /etc/apt/keyrings || return $?
-            if [ -f /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg ]; then
-                mv /etc/apt/trusted.gpg.d/linuxmint-keyring.gpg /etc/apt/keyrings/ || return $?
-            fi
-            # Thêm repo Mint (Include: chromium — apt 26.04+ chỉ lấy chromium)
-            if ! printf '%s\n' \
-                '# Linux Mint repo — chỉ lấy chromium, không ảnh hưởng gì đến hệ thống' \
-                'Types: deb' \
-                'URIs: http://packages.linuxmint.com' \
-                "Suites: $MINT_SUITE" \
-                'Components: upstream' \
-                'Include: chromium' \
-                'Signed-By: /etc/apt/keyrings/linuxmint-keyring.gpg' \
-                > /etc/apt/sources.list.d/linuxmint.sources; then
-                return 1
-            fi
-        fi
-        apt-get update || return $?
-        apt-get install -y chromium || return $?
+        # Fallback: thêm PPA xtradeb/apps, pin chỉ lấy các gói chromium*
+        warn "Repo không có chromium .deb — thêm PPA xtradeb/apps (chỉ chromium)"
+        install_chromium_from_xtradeb || return $?
     fi
     ok "Đã cài Chromium"
 }
