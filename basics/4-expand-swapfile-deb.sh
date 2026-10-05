@@ -29,6 +29,7 @@ TARGET_SWAP_BYTES=$((16 * 1024 * 1024 * 1024))
 PAGE_SIZE_BYTES=$(getconf PAGESIZE 2>/dev/null || printf '4096')
 NEW_SWAPFILE=/swapfile-extra
 TEMP_SWAPFILE=""
+# sh không có biến local: mỗi hàm dùng tiền tố biến riêng để hàm con không ghi đè biến của hàm gọi
 
 total_swap_bytes() {
     LC_ALL=C swapon --show --noheadings --raw --bytes --output NAME,TYPE,SIZE 2>/dev/null \
@@ -45,57 +46,57 @@ available_bytes() {
 }
 
 swap_is_active() {
-    _swap_path=$1
+    _active_path=$1
     LC_ALL=C swapon --show --noheadings --raw --output NAME 2>/dev/null \
-        | grep -Fx -- "$_swap_path" >/dev/null 2>&1
+        | grep -Fx -- "$_active_path" >/dev/null 2>&1
 }
 
 create_swapfile() {
-    _swap_path=$1
-    _swap_bytes=$2
-    _swap_dir=$(dirname -- "$_swap_path")
-    _swap_fs=$(findmnt -no FSTYPE -T "$_swap_dir" 2>/dev/null || true)
+    _create_path=$1
+    _create_bytes=$2
+    _create_dir=$(dirname -- "$_create_path")
+    _create_fs=$(findmnt -no FSTYPE -T "$_create_dir" 2>/dev/null || true)
 
-    [ ! -e "$_swap_path" ] || { warn "$_swap_path đã tồn tại, không ghi đè"; return 1; }
-    case "$_swap_fs" in
+    [ ! -e "$_create_path" ] || { warn "$_create_path đã tồn tại, không ghi đè"; return 1; }
+    case "$_create_fs" in
         btrfs)
             command -v btrfs >/dev/null 2>&1 || {
                 warn "Filesystem Btrfs cần lệnh btrfs để tạo swapfile an toàn"
                 return 1
             }
-            btrfs filesystem mkswapfile --size "$_swap_bytes" "$_swap_path" || return 1
-            chmod 600 "$_swap_path" || return 1
+            btrfs filesystem mkswapfile --size "$_create_bytes" "$_create_path" || return 1
+            chmod 600 "$_create_path" || return 1
             ;;
         *)
-            _swap_mib=$((_swap_bytes / 1048576))
-            _swap_remainder=$((_swap_bytes % 1048576))
+            _create_mib=$((_create_bytes / 1048576))
+            _create_remainder=$((_create_bytes % 1048576))
             umask 077
-            dd if=/dev/zero of="$_swap_path" bs=1M count="$_swap_mib" status=none || {
-                rm -f "$_swap_path"
+            dd if=/dev/zero of="$_create_path" bs=1M count="$_create_mib" status=none || {
+                rm -f "$_create_path"
                 return 1
             }
-            if [ "$_swap_remainder" -gt 0 ]; then
-                dd if=/dev/zero of="$_swap_path" bs=1 count="$_swap_remainder" \
+            if [ "$_create_remainder" -gt 0 ]; then
+                dd if=/dev/zero of="$_create_path" bs=1 count="$_create_remainder" \
                     oflag=append conv=notrunc,fsync status=none || {
-                    rm -f "$_swap_path"
+                    rm -f "$_create_path"
                     return 1
                 }
             else
-                sync -f "$_swap_path" 2>/dev/null || sync
+                sync -f "$_create_path" 2>/dev/null || sync
             fi
-            chmod 600 "$_swap_path" || { rm -f "$_swap_path"; return 1; }
-            mkswap "$_swap_path" >/dev/null || { rm -f "$_swap_path"; return 1; }
+            chmod 600 "$_create_path" || { rm -f "$_create_path"; return 1; }
+            mkswap "$_create_path" >/dev/null || { rm -f "$_create_path"; return 1; }
             ;;
     esac
 }
 
 ensure_fstab_entry() {
-    _swap_path=$1
-    if awk -v path="$_swap_path" '$1 == path && $3 == "swap" { found=1 } END { exit !found }' /etc/fstab; then
+    _fstab_path=$1
+    if awk -v path="$_fstab_path" '$1 == path && $3 == "swap" { found=1 } END { exit !found }' /etc/fstab; then
         return 0
     fi
-    if printf '%s none swap sw 0 0\n' "$_swap_path" >> /etc/fstab; then
-        ok "Đã thêm $_swap_path vào /etc/fstab"
+    if printf '%s none swap sw 0 0\n' "$_fstab_path" >> /etc/fstab; then
+        ok "Đã thêm $_fstab_path vào /etc/fstab"
     else
         warn "Swap đã active nhưng không ghi được /etc/fstab; nó sẽ không tự bật sau reboot"
     fi
@@ -117,12 +118,12 @@ cleanup_temp_swapfile() {
 trap 'cleanup_temp_swapfile || true' EXIT HUP INT TERM
 
 restore_original_swapfile() {
-    _swap_path=$1
-    _old_file_bytes=$2
-    warn "Đang cố khôi phục swapfile cũ tại $_swap_path..."
-    rm -f "$_swap_path" || return 1
-    create_swapfile "$_swap_path" "$_old_file_bytes" || return 1
-    swapon "$_swap_path" || return 1
+    _restore_path=$1
+    _restore_bytes=$2
+    warn "Đang cố khôi phục swapfile cũ tại $_restore_path..."
+    rm -f "$_restore_path" || return 1
+    create_swapfile "$_restore_path" "$_restore_bytes" || return 1
+    swapon "$_restore_path" || return 1
     ok "Đã khôi phục swapfile cũ"
 }
 

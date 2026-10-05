@@ -136,6 +136,63 @@ assert_contains "$SWAP_FILE" 'swapon "$TEMP_SWAPFILE"' "Bật swap tạm trướ
 assert_contains "$SWAP_FILE" 'swapoff "$_swap_path"' "Tắt swapfile chính sau khi có swap tạm"
 assert_contains "$SWAP_FILE" 'NEW_SWAPFILE=/swapfile-extra' "Swap mới dùng đường dẫn riêng an toàn"
 assert_contains "$SWAP_FILE" 'main || warn' "Lỗi swap runtime không làm child thất bại"
+
+# --- Swap chạy thật với stub: tổng phải đúng 16 GiB, mở rộng đúng file gốc ---
+SW_BIN="$TMP_TEST/swap-stubs"
+mkdir -p "$SW_BIN"
+cat > "$SW_BIN/swapon" <<'EOF'
+#!/bin/sh
+if [ "$1" = --show ]; then
+    case "$*" in *SIZE*) cat "$SW_ACTIVE" ;; *) awk '{print $1}' "$SW_ACTIVE" ;; esac
+    exit 0
+fi
+printf '%s file %s\n' "$1" "$(awk -v p="$1" '$1 == p { print $2 }' "$SW_SIZES" | tail -1)" >> "$SW_ACTIVE"
+EOF
+cat > "$SW_BIN/swapoff" <<'EOF'
+#!/bin/sh
+grep -v "^$1 " "$SW_ACTIVE" > "$SW_ACTIVE.t"; mv "$SW_ACTIVE.t" "$SW_ACTIVE"
+EOF
+cat > "$SW_BIN/dd" <<'EOF'
+#!/bin/sh
+for a in "$@"; do
+    case $a in of=*) of=${a#of=} ;; bs=1M) bs=1048576 ;; bs=1) bs=1 ;; count=*) count=${a#count=} ;; oflag=append) app=1 ;; esac
+done
+old=0
+[ "${app:-0}" = 1 ] && old=$(awk -v p="$of" '$1 == p { print $2 }' "$SW_SIZES" | tail -1)
+grep -v "^$of " "$SW_SIZES" > "$SW_SIZES.t"; mv "$SW_SIZES.t" "$SW_SIZES"
+printf '%s %s\n' "$of" "$((old + bs * count))" >> "$SW_SIZES"; : > "$of"
+EOF
+cat > "$SW_BIN/stat" <<'EOF'
+#!/bin/sh
+for a in "$@"; do last=$a; done
+awk -v p="$last" '$1 == p { print $2 }' "$SW_SIZES" | tail -1
+EOF
+printf '#!/bin/sh\necho "Filesystem 1-blocks Used Available"\necho "x 0 0 999999999999"\n' > "$SW_BIN/df"
+printf '#!/bin/sh\necho ext4\n' > "$SW_BIN/findmnt"
+for command_name in mkswap sync chmod; do printf '#!/bin/sh\nexit 0\n' > "$SW_BIN/$command_name"; done
+chmod +x "$SW_BIN"/*
+SW_ROOT="$TMP_TEST/swap-root"
+mkdir -p "$SW_ROOT/basics"
+ln -s "$ROOT/lib" "$SW_ROOT/lib"
+sed "s#/swapfile-extra#$SW_ROOT/swapfile-extra#; s#/etc/fstab#$SW_ROOT/fstab#g" "$SWAP_FILE" > "$SW_ROOT/basics/4-expand-swapfile-deb.sh"
+GIB=$((1024 * 1024 * 1024))
+printf '%s/swap.img file %s\n' "$SW_ROOT" "$((4 * GIB))" > "$SW_ROOT/active"
+printf '%s/swap.img %s\n' "$SW_ROOT" "$((4 * GIB))" > "$SW_ROOT/sizes"
+: > "$SW_ROOT/swap.img"; : > "$SW_ROOT/fstab"
+PATH="$SW_BIN:$PATH" SW_ACTIVE="$SW_ROOT/active" SW_SIZES="$SW_ROOT/sizes" \
+    sh "$SW_ROOT/basics/4-expand-swapfile-deb.sh" > "$TMP_TEST/swap-run.out" 2>&1
+if [ "$(awk '{ t += $3 } END { printf "%.0f", t }' "$SW_ROOT/active")" = "$((16 * GIB))" ] && \
+   [ "$(wc -l < "$SW_ROOT/active")" -eq 1 ] && \
+   grep -q "^$SW_ROOT/swap.img file $((16 * GIB))\$" "$SW_ROOT/active"; then
+    pass "Swap 4 GiB được mở rộng chính file gốc lên tổng đúng 16 GiB"
+else
+    fail "Swap 4 GiB được mở rộng chính file gốc lên tổng đúng 16 GiB"
+fi
+if grep -q '\.expand\.' "$SW_ROOT/fstab" || ls -A "$SW_ROOT" | grep -q '\.expand\.'; then
+    fail "Swap không để lại swapfile tạm trong fstab hoặc trên đĩa"
+else
+    pass "Swap không để lại swapfile tạm trong fstab hoặc trên đĩa"
+fi
 assert_contains "$KDE_FILE" 'DEBIAN_FRONTEND=noninteractive apt-get install -y kde-plasma-desktop sddm' "KDE cài noninteractive với SDDM"
 assert_contains "$KDE_FILE" 'sddm shared/default-x-display-manager select sddm' "KDE preseed SDDM"
 PURGE_GNOME_FILE="$ROOT/lib/purge-gnome.sh"
