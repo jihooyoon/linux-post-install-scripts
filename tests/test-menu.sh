@@ -416,6 +416,57 @@ assert_contains "$TMP_TEST/run-selected-best-effort.fn" "_selected_item_index=1"
 assert_not_contains "$TMP_TEST/basic-run-selected-best-effort.fn" "_i=" "Basic Apps runner không dùng iterator chung _i"
 assert_contains "$TMP_TEST/basic-run-selected-best-effort.fn" "_selected_item_index=1" "Basic Apps runner dùng iterator riêng"
 
+# --- Chromium: chỉ xét bản Candidate, không bị bản snap cũ còn sót trong repo đánh lừa ---
+awk '/^install_chromium\(\)/,/^}/' "$BASIC_FILE" > "$TMP_TEST/install-chromium.fn"
+CHR_BIN="$TMP_TEST/chromium-stubs"
+mkdir -p "$CHR_BIN"
+cat > "$CHR_BIN/apt-cache" <<'EOF'
+#!/bin/sh
+# CHR_CASE=tuxedo: chromium có bản .deb thật làm Candidate + bản snap cũ 131 còn trong repo
+# CHR_CASE=ubuntu: chromium là gói ảo, chromium-browser chỉ có bản snap
+case "$CHR_CASE:$1:$2" in
+    tuxedo:policy:chromium) printf 'chromium:\n  Installed: (none)\n  Candidate: 2:153.0-1tux1\n' ;;
+    tuxedo:policy:chromium-browser) printf 'chromium-browser:\n  Installed: (none)\n  Candidate: 2:153.0-1tux1\n' ;;
+    tuxedo:show:chromium=2:153.0-1tux1) printf 'Package: chromium\nVersion: 2:153.0-1tux1\nDepends: libgtk-3-0, libnss3\n' ;;
+    tuxedo:show:chromium) printf 'Package: chromium\nVersion: 2:153.0-1tux1\nDepends: libgtk-3-0\n\nPackage: chromium\nVersion: 2:131.0-1tux1-snap\nPre-Depends: debconf, snapd\n' ;;
+    ubuntu:policy:chromium) printf 'chromium:\n  Installed: (none)\n  Candidate: (none)\n' ;;
+    ubuntu:policy:chromium-browser) printf 'chromium-browser:\n  Installed: (none)\n  Candidate: 2:1snap1-0ubuntu2\n' ;;
+    ubuntu:show:chromium-browser=2:1snap1-0ubuntu2) printf 'Package: chromium-browser\nVersion: 2:1snap1-0ubuntu2\nPre-Depends: debconf, snapd\n' ;;
+esac
+exit 0
+EOF
+printf '#!/bin/sh\necho "apt-get $*" >> "$CHR_CALLS"\n' > "$CHR_BIN/apt-get"
+chmod +x "$CHR_BIN"/*
+run_chromium_case() {
+    : > "$TMP_TEST/chr-calls.log"
+    (
+        PATH="$CHR_BIN:$PATH"
+        CHR_CASE=$1
+        CHR_CALLS="$TMP_TEST/chr-calls.log"
+        export CHR_CASE CHR_CALLS
+        info() { printf 'info:%s\n' "$*"; }
+        ok() { printf 'ok:%s\n' "$*"; }
+        warn() { printf 'warn:%s\n' "$*"; }
+        ensure_curl() { return 1; }
+        . "$TMP_TEST/install-chromium.fn"
+        install_chromium
+    ) > "$TMP_TEST/chr.out" 2>&1
+}
+run_chromium_case tuxedo
+if grep -q '^apt-get install -y chromium$' "$TMP_TEST/chr-calls.log" && \
+   ! grep -q 'Linux Mint' "$TMP_TEST/chr.out"; then
+    pass "Chromium: Candidate .deb thật thì cài thẳng, không bị bản snap cũ trong repo đánh lừa"
+else
+    fail "Chromium: Candidate .deb thật thì cài thẳng, không bị bản snap cũ trong repo đánh lừa"
+fi
+run_chromium_case ubuntu
+if grep -q 'thêm Linux Mint repo' "$TMP_TEST/chr.out" && \
+   ! grep -q '^apt-get install' "$TMP_TEST/chr-calls.log"; then
+    pass "Chromium: chỉ có bản snap thì chuyển sang nguồn thay thế"
+else
+    fail "Chromium: chỉ có bản snap thì chuyển sang nguồn thay thế"
+fi
+
 if (
     . "$ROOT/lib/setup-contract.sh"
     . "$TMP_TEST/flatpak-detect-desktop.fn"

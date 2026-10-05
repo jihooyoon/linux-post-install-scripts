@@ -108,9 +108,12 @@ install_chromium() {
     info "Cài Chromium..."
     HAS_CHROMIUM=0
     for pkg in chromium chromium-browser; do
-        # Lưu ý: gói purely virtual (vd: chromium trên Ubuntu 24.04) — apt-cache show
-        # vẫn exit 0 nhưng stdout rỗng, nên phải kiểm tra record có nội dung thật
-        if RECORD=$(apt-cache show "$pkg" 2>/dev/null) && [ -n "$RECORD" ] && \
+        # Chỉ xét bản Candidate (bản apt sẽ cài): apt-cache show <pkg> in mọi version trong
+        # repo, nên một bản snap transitional cũ còn sót (vd Tuxedo 131.x-snap) sẽ làm hiểu nhầm.
+        # Gói purely virtual (vd: chromium trên Ubuntu 24.04) có Candidate (none) — bỏ qua.
+        CANDIDATE=$(LC_ALL=C apt-cache policy "$pkg" 2>/dev/null | awk '/^ +Candidate:/ { print $2; exit }')
+        if [ -n "$CANDIDATE" ] && [ "$CANDIDATE" != "(none)" ] && \
+           RECORD=$(apt-cache show "$pkg=$CANDIDATE" 2>/dev/null) && [ -n "$RECORD" ] && \
            ! printf '%s\n' "$RECORD" | grep -qE '(Pre-?)?Depends:.*snapd'; then
             HAS_CHROMIUM=1
             CHROMIUM_PKG="$pkg"
